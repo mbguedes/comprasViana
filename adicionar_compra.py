@@ -5,43 +5,42 @@ from datetime import datetime
 ARQUIVO_DADOS = os.path.join('dados', 'compras.csv')
 
 def adicionar_compra():
-    print('Adicionando nova compra...')
+    """
+    Coleta os dados de uma nova compra do usuário e a adiciona ao arquivo CSV.
+    """
+    print('--- Adicionando Nova Compra ---')
+    
+    data_hoje = datetime.now().strftime('%Y-%m-%d')
+    data_digitada = input(f"Data da compra (AAAA-MM-DD) [Pressione Enter para usar hoje ({data_hoje})]: ")
+    
+    if not data_digitada:
+        data_compra = data_hoje
+    else:
+        data_compra = data_digitada
 
-    data_compra = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
     nome_produto = input('Nome do produto: ')
     fornecedor = input('Fornecedor: ')
-    preco_unitario = float(input('Preço unitário (use . para centavos, ex: 8.20): '))
+    quantidade_comprada = float(input('Quantidade comprada (ex: 2.5): '))
     unidade_medida = input('Unidade de medida (ex: kg, un, lt): ')
-    quantidade_comprada = float(input('Quantidade comprada (use . para centavos, ex: 2.5): '))
+    preco_unitario = float(input('Preço unitário (ex: 8.20): '))
     numero_nota_fiscal = input('Número da nota fiscal ou alguma obs: ')
 
     custo_total = preco_unitario * quantidade_comprada
+    print(f'\nCusto total do item: R$ {custo_total:.2f}')
 
     novo_registro = {
-        'Data da Compra': [data_compra],
-        'Nome do Produto': [nome_produto],
-        'Fornecedor': [fornecedor],
-        'Quantidade Comprada': [quantidade_comprada],
-        'Unidade de Medida': [unidade_medida],
-        'Preço Unitário': [preco_unitario],
-        'Número da Nota Fiscal': [numero_nota_fiscal]
+        'data_compra': [data_compra],
+        'nome_produto': [nome_produto],
+        'fornecedor': [fornecedor],
+        'quantidade_comprada': [quantidade_comprada],
+        'unidade_medida': [unidade_medida],
+        'preco_unitario': [preco_unitario],
+        'numero_nota_fiscal': [numero_nota_fiscal]
     }
 
     df_novo = pd.DataFrame(novo_registro)
 
     df_novo.to_csv(ARQUIVO_DADOS, mode='a', header=False, index=False, sep=';')
 
-    print('Compra adicionada com sucesso!')
-    # print(f'Compra de {quantidade_comprada} {unidade_medida} de {nome_produto} por R$ {custo_total:.2f} adicionada com sucesso!')
-
-if __name__ == '__main__':
-    colunas = ['data_compra', 'nome_produto', 'fornecedor', 'quantidade_comprada', 'unidade_medida', 'preco_unitario', 'numero_nota_fiscal']
-    
-    if not os.path.isfile(ARQUIVO_DADOS):
-        print('Arquivo não encontrado. Criando um novo...')
-        os.makedirs('dados', exist_ok=True)
-
-        cabecalho = pd.DataFrame(columns=colunas)
-        cabecalho.to_csv(ARQUIVO_DADOS, index=False, sep=';')
-
-    adicionar_compra()
+    print('\n✅ Compra adicionada com sucesso!')
