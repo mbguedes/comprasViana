@@ -1,0 +1,7 @@
+[theme]
+base="dark" 
+primaryColor="#4A90E2" # Azul Jeans (Hexadecimal)
+secondaryBackgroundColor="#262626" # Um cinza escuro para manter o contraste
+backgroundColor="#0E1117" # Cor padrão do tema escuro do Streamlit
+textColor="#FAFAFA" # Branco quase puro
+font="sans serif"

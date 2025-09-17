@@ -57,9 +57,9 @@ def salvar_dados_sql(df_compras_para_salvar):
         # df_compras_para_salvar.to_csv(ARQUIVO_DADOS, mode='a', header=False, index=False, sep=';')
 
 #FrontEnzo
-st.title("📝 Controle de Compras - Restaurante Viana")
+st.title("📝 Restaurante Viana Praia")
+st.subheader("Sistema de Controle de Compras")
 st.markdown("---")
-
 
 with st.form("form_compras", clear_on_submit=True):
     st.subheader("Adicionar Item para Conferência")
@@ -72,7 +72,11 @@ with st.form("form_compras", clear_on_submit=True):
         numero_nota_fiscal = st.text_input("Nota Fiscal / Observação", placeholder="Ex: 123456")
     with col2:
         quantidade_comprada = st.number_input("Quantidade", min_value=0.0, format="%.2f")
-        unidade_medida = st.text_input("Unidade de Medida", placeholder="Ex: kg, un, L")
+        unidade_medida = st.selectbox(
+            'Unidade de Medida',
+            options=['Un','L','KG','Cxa','Pct']
+        )
+
         preco_unitario = st.number_input("Preço Unitário (R$)", min_value=0.0, format="%.2f")
 
 
