@@ -1,21 +1,60 @@
 import streamlit as st
 import pandas as pd
 import os
+import sqlite3
 from datetime import datetime, date
+import time
 
-ARQUIVO_DADOS = os.path.join('dados', 'compras.csv')
+DB_NAME = os.path.join('dados', 'viana.db')
+
+##ARQUIVO_DADOS = os.path.join('dados', 'compras.csv')
 
 if 'compras_stage' not in st.session_state:
     st.session_state.compras_stage = []
 
-def salvar_dados(df_compras_para_salvar):
-    """Salva um DataFrame de compras no arquivo CSV."""
-    colunas = ['data_compra', 'nome_produto', 'fornecedor', 'quantidade_comprada', 'unidade_medida', 'preco_unitario', 'numero_nota_fiscal']
-    if not os.path.exists(ARQUIVO_DADOS):
-        os.makedirs('dados', exist_ok=True)
-        cabecalho = pd.DataFrame(columns=colunas)
-        cabecalho.to_csv(ARQUIVO_DADOS, index=False, sep=';')
-    df_compras_para_salvar.to_csv(ARQUIVO_DADOS, mode='a', header=False, index=False, sep=';')
+##def salvar_dados(df_compras_para_salvar):
+
+def salvar_dados_sql(df_compras_para_salvar):
+    """Salva um DataFrame de compras no banco de dados SQLite."""
+    try:
+        conn = sqlite3.connect(DB_NAME)
+        df_compras_para_salvar.to_sql(
+            'compras',
+            conn,
+            if_exists='append',
+            index=False
+        )
+        conn.close()
+        st.success("🎉 Todas as compras foram salvas com sucesso no banco de dados!")
+        return True
+    except Exception as e:
+        st.error(f"Erro ao salvar dados no banco de dados: {e}")
+        return False
+
+
+        #for _, row in df_compras_para_salvar.iterrows():
+        #     cursor.execute("""
+        #         INSERT INTO compras (data_compra, nome_produto, fornecedor, quantidade_comprada, unidade_medida, preco_unitario, numero_nota_fiscal)
+        #         VALUES (?, ?, ?, ?, ?, ?, ?)
+        #     """, (
+        #         row['data_compra'],
+        #         row['nome_produto'],
+        #         row['fornecedor'],
+        #         row['quantidade_comprada'],
+        #         row['unidade_medida'],
+        #         row['preco_unitario'],
+        #         row['numero_nota_fiscal']
+        #     ))
+        
+        #     conn.commit()
+        #     st.success("🎉 Todas as compras foram salvas com sucesso no banco de dados!")
+        # """Salva um DataFrame de compras no arquivo CSV."""
+        # colunas = ['data_compra', 'nome_produto', 'fornecedor', 'quantidade_comprada', 'unidade_medida', 'preco_unitario', 'numero_nota_fiscal']
+        # if not os.path.exists(ARQUIVO_DADOS):
+        #     os.makedirs('dados', exist_ok=True)
+        #     cabecalho = pd.DataFrame(columns=colunas)
+        #     cabecalho.to_csv(ARQUIVO_DADOS, index=False, sep=';')
+        # df_compras_para_salvar.to_csv(ARQUIVO_DADOS, mode='a', header=False, index=False, sep=';')
 
 #FrontEnzo
 st.title("📝 Controle de Compras - Restaurante Viana")
@@ -65,12 +104,14 @@ if st.session_state.compras_stage:
     
     col_final1, col_final2 = st.columns(2)
     with col_final1:
-        if st.button("💾 Salvar Compras na Planilha", type="primary"):
-            salvar_dados(df_stage)
-            st.success("🎉 Todas as compras foram salvas com sucesso no arquivo `compras.csv`!")
-            st.balloons()
-            st.session_state.compras_stage = []
-            st.rerun()
+        if st.button("💾 Salvar Compras no Banco de Dados", type="primary"):
+            if salvar_dados_sql(df_stage):
+                placeholder = st.empty()
+                placeholder.success("Parabéns! 🎉 Salvo com sucesso!")
+                time.sleep(2)
+                placeholder.empty()
+                st.session_state.compras_stage = []
+                st.rerun()
 
     with col_final2:
         if st.button("Limpar Lista"):
