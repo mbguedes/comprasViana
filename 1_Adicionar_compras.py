@@ -1,123 +1,151 @@
 import streamlit as st
 import pandas as pd
-import os
 import sqlite3
-from datetime import datetime, date
+from datetime import date
 import time
 
-DB_NAME = os.path.join('dados', 'viana.db')
+# Importações organizadas para as funções de suporte
+from autenticacao import check_user, add_user
+from database import registrar_log 
 
-##ARQUIVO_DADOS = os.path.join('dados', 'compras.csv')
+# --- CONFIGURAÇÕES E INICIALIZAÇÃO ---
+DB_NAME = 'dados/viana.db'
+
+# Inicializa o estado da sessão para login e para a lista de compras
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
+    st.session_state.username = ""
+    st.session_state.user_id = None
 
 if 'compras_stage' not in st.session_state:
     st.session_state.compras_stage = []
 
-##def salvar_dados(df_compras_para_salvar):
 
-def salvar_dados_sql(df_compras_para_salvar):
-    """Salva um DataFrame de compras no banco de dados SQLite."""
-    try:
-        conn = sqlite3.connect(DB_NAME)
-        df_compras_para_salvar.to_sql(
-            'compras',
-            conn,
-            if_exists='append',
-            index=False
-        )
-        conn.close()
-        st.success("🎉 Todas as compras foram salvas com sucesso no banco de dados!")
-        return True
-    except Exception as e:
-        st.error(f"Erro ao salvar dados no banco de dados: {e}")
-        return False
+# --- TELA DE LOGIN / CADASTRO (SÓ APARECE SE NÃO ESTIVER LOGADO) ---
+if not st.session_state.logged_in:
+    st.title("Bem-vindo ao Controle de Compras Viana")
+    
+    login_tab, signup_tab = st.tabs(["Login", "Criar Conta"])
 
+    with login_tab:
+        with st.form("login_form"):
+            username = st.text_input("Usuário")
+            password = st.text_input("Senha", type="password")
+            login_button = st.form_submit_button("Login")
+            
+            if login_button:
+                user_info = check_user(username, password)
+                if user_info:
+                    st.session_state.logged_in = True
+                    st.session_state.user_id = user_info[0]   # Guarda o ID
+                    st.session_state.username = user_info[1] # Guarda o Nome
+                    st.rerun()
+                else:
+                    st.error("Usuário ou senha incorretos.")
 
-        #for _, row in df_compras_para_salvar.iterrows():
-        #     cursor.execute("""
-        #         INSERT INTO compras (data_compra, nome_produto, fornecedor, quantidade_comprada, unidade_medida, preco_unitario, numero_nota_fiscal)
-        #         VALUES (?, ?, ?, ?, ?, ?, ?)
-        #     """, (
-        #         row['data_compra'],
-        #         row['nome_produto'],
-        #         row['fornecedor'],
-        #         row['quantidade_comprada'],
-        #         row['unidade_medida'],
-        #         row['preco_unitario'],
-        #         row['numero_nota_fiscal']
-        #     ))
+    with signup_tab:
+        with st.form("signup_form"):
+            new_username = st.text_input("Novo Usuário")
+            new_password = st.text_input("Nova Senha", type="password")
+            signup_button = st.form_submit_button("Criar Conta")
+            
+            if signup_button:
+                if add_user(new_username, new_password):
+                    st.success("Conta criada com sucesso! Por favor, faça o login.")
+                    st.balloons()
+                else:
+                    st.error("Este nome de usuário já existe.")
+else:
+    # --- APLICAÇÃO PRINCIPAL (SÓ APARECE DEPOIS DO LOGIN) ---
+    
+    st.sidebar.success(f"Logado como: {st.session_state.username}")
+    if st.sidebar.button("Logout"):
+        # Limpa todas as chaves da sessão para garantir um logout limpo
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
+        st.rerun()
+
+    # Função de salvar movida para dentro da área logada para organização
+    def salvar_dados_sql(df_compras_para_salvar):
+        """Salva um DataFrame de compras no banco de dados SQLite."""
+        try:
+            conn = sqlite3.connect(DB_NAME)
+            df_compras_para_salvar.to_sql('compras', conn, if_exists='append', index=False)
+            conn.close()
+            return True
+        except Exception as e:
+            st.error(f"Erro ao salvar dados no banco de dados: {e}")
+            return False
+
+    # --- INÍCIO DA INTERFACE PRINCIPAL ---
+    st.title("📝 Restaurante Viana Praia")
+    st.subheader("Sistema de Controle de Compras")
+    st.markdown("---")
+
+    with st.form("form_compras", clear_on_submit=True):
+        st.subheader("Adicionar Item para Conferência")
         
-        #     conn.commit()
-        #     st.success("🎉 Todas as compras foram salvas com sucesso no banco de dados!")
-        # """Salva um DataFrame de compras no arquivo CSV."""
-        # colunas = ['data_compra', 'nome_produto', 'fornecedor', 'quantidade_comprada', 'unidade_medida', 'preco_unitario', 'numero_nota_fiscal']
-        # if not os.path.exists(ARQUIVO_DADOS):
-        #     os.makedirs('dados', exist_ok=True)
-        #     cabecalho = pd.DataFrame(columns=colunas)
-        #     cabecalho.to_csv(ARQUIVO_DADOS, index=False, sep=';')
-        # df_compras_para_salvar.to_csv(ARQUIVO_DADOS, mode='a', header=False, index=False, sep=';')
+        col1, col2 = st.columns(2)
+        with col1:
+            data_compra = st.date_input("Data da compra", value=date.today())
+            nome_produto = st.text_input("Nome do produto", placeholder="Ex: Tomate Italiano")
+            fornecedor = st.text_input("Fornecedor", placeholder="Ex: Hortifruti do Zé")
+            numero_nota_fiscal = st.text_input("Nota Fiscal / Observação", placeholder="Ex: 123456")
+        with col2:
+            quantidade_comprada = st.number_input("Quantidade", min_value=0.0, format="%.2f")
+            unidade_medida = st.selectbox(
+                'Unidade de Medida',
+                options=['Un','L','Kg','Cxa','Pct']
+            )
+            preco_unitario = st.number_input("Preço Unitário (R$)", min_value=0.0, format="%.2f")
 
-#FrontEnzo
-st.title("📝 Restaurante Viana Praia")
-st.subheader("Sistema de Controle de Compras")
-st.markdown("---")
+        submitted = st.form_submit_button("➕ Adicionar à Lista")
 
-with st.form("form_compras", clear_on_submit=True):
-    st.subheader("Adicionar Item para Conferência")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        data_compra = st.date_input("Data da compra", value=date.today())
-        nome_produto = st.text_input("Nome do produto", placeholder="Ex: Tomate Italiano")
-        fornecedor = st.text_input("Fornecedor", placeholder="Ex: Hortifruti do Zé")
-        numero_nota_fiscal = st.text_input("Nota Fiscal / Observação", placeholder="Ex: 123456")
-    with col2:
-        quantidade_comprada = st.number_input("Quantidade", min_value=0.0, format="%.2f")
-        unidade_medida = st.selectbox(
-            'Unidade de Medida',
-            options=['Un','L','KG','Cxa','Pct']
-        )
+    if submitted:
+        if not nome_produto or preco_unitario == 0:
+            st.warning("⚠️ Por favor, preencha pelo menos o Nome do Produto e o Preço Unitário.")
+        else:
+            st.session_state.compras_stage.append({
+                'data_compra': data_compra.strftime('%Y-%m-%d'),
+                'nome_produto': nome_produto,
+                'fornecedor': fornecedor,
+                'quantidade_comprada': quantidade_comprada,
+                'unidade_medida': unidade_medida,
+                'preco_unitario': preco_unitario,
+                'numero_nota_fiscal': numero_nota_fiscal,
+                'id_usuario': st.session_state.user_id
+            })
+            st.info("Item adicionado à lista de conferência abaixo.")
 
-        preco_unitario = st.number_input("Preço Unitário (R$)", min_value=0.0, format="%.2f")
+    st.markdown("---")
+        
+    if st.session_state.compras_stage:
+        st.subheader("Conferência de Lançamentos")
+        
+        df_stage = pd.DataFrame(st.session_state.compras_stage)
+        st.dataframe(df_stage)
+        
+        col_final1, col_final2 = st.columns(2)
+        with col_final1:
+            if st.button("💾 Salvar Compras no Banco de Dados", type="primary"):
+                if salvar_dados_sql(df_stage):
+                    # Registra o log da atividade
+                    detalhes_log = f"O usuário salvou {len(df_stage)} novos itens de compra."
+                    registrar_log(
+                        id_usuario=st.session_state.user_id,
+                        username=st.session_state.username,
+                        acao="REGISTRO DE COMPRAS",
+                        detalhes=detalhes_log
+                    )
+                    
+                    placeholder = st.empty()
+                    placeholder.success("Parabéns! 🎉 Salvo com sucesso!")
+                    time.sleep(2)
+                    placeholder.empty()
+                    st.session_state.compras_stage = []
+                    st.rerun()
 
-
-    submitted = st.form_submit_button("➕ Adicionar à Lista")
-
-if submitted:
-    if not nome_produto or preco_unitario == 0:
-        st.warning("⚠️ Por favor, preencha pelo menos o Nome do Produto e o Preço Unitário.")
-    else:
-        st.session_state.compras_stage.append({
-            'data_compra': data_compra.strftime('%Y-%m-%d'),
-            'nome_produto': nome_produto,
-            'fornecedor': fornecedor,
-            'quantidade_comprada': quantidade_comprada,
-            'unidade_medida': unidade_medida,
-            'preco_unitario': preco_unitario,
-            'numero_nota_fiscal': numero_nota_fiscal
-        })
-        st.info("Item adicionado à lista de conferência abaixo.")
-
-st.markdown("---")
-
-# conferencia da lista de compras
-if st.session_state.compras_stage:
-    st.subheader("Conferência de Lançamentos")
-    
-    df_stage = pd.DataFrame(st.session_state.compras_stage)
-    st.dataframe(df_stage)
-    
-    col_final1, col_final2 = st.columns(2)
-    with col_final1:
-        if st.button("💾 Salvar Compras no Banco de Dados", type="primary"):
-            if salvar_dados_sql(df_stage):
-                placeholder = st.empty()
-                placeholder.success("Parabéns! 🎉 Salvo com sucesso!")
-                time.sleep(2)
-                placeholder.empty()
+        with col_final2:
+            if st.button("Limpar Lista"):
                 st.session_state.compras_stage = []
                 st.rerun()
-
-    with col_final2:
-        if st.button("Limpar Lista"):
-            st.session_state.compras_stage = []
-            st.rerun()
