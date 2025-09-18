@@ -6,7 +6,8 @@ import time
 
 # Importações organizadas para as funções de suporte
 from autenticacao import check_user, add_user
-from database import registrar_log 
+from database import registrar_log, salvar_dados_sql
+
 
 # --- CONFIGURAÇÕES E INICIALIZAÇÃO ---
 DB_NAME = 'dados/viana.db'
@@ -31,17 +32,21 @@ if not st.session_state.logged_in:
         with st.form("login_form"):
             username = st.text_input("Usuário")
             password = st.text_input("Senha", type="password")
+            access_key_login = st.text_input("Palavra-chave de Acesso", type="password", placeholder="Validação de funcionário", key="login_keyword")
             login_button = st.form_submit_button("Login")
             
             if login_button:
-                user_info = check_user(username, password)
-                if user_info:
-                    st.session_state.logged_in = True
-                    st.session_state.user_id = user_info[0]   # Guarda o ID
-                    st.session_state.username = user_info[1] # Guarda o Nome
-                    st.rerun()
+                if access_key_login == st.secrets["SIGNUP_KEYWORD"]:
+                    user_info = check_user(username, password)
+                    if user_info:
+                        st.session_state.logged_in = True
+                        st.session_state.user_id = user_info[0]
+                        st.session_state.username = user_info[1]
+                        st.rerun()
+                    else:
+                        st.error("Usuário ou senha incorretos.")
                 else:
-                    st.error("Usuário ou senha incorretos.")
+                    st.error("Palavra-chave de acesso incorreta.")
 
     with signup_tab:
         with st.form("signup_form"):
