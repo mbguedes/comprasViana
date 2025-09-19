@@ -51,16 +51,18 @@ def ler_dados_sql():
         conn = get_db_connection()
         query = "SELECT c.*, u.username as registrado_por FROM compras c LEFT JOIN usuarios u ON c.id_usuario = u.id ORDER BY c.data_compra DESC"
         rs = conn.execute(query)
-        # Converte o resultado da query para um DataFrame do Pandas
-        df = pd.DataFrame(rs.rows, columns=[col[0] for col in rs.cols])
+        
+        df = pd.DataFrame(rs.rows, columns=rs.columns)
         
         if not df.empty and 'data_compra' in df.columns:
             df['data_compra'] = pd.to_datetime(df['data_compra'])
+            
     except Exception as e:
-        st.error(f"Erro ao ler dados do banco de dados na nuvem: {e}")
+        st.error(f"Erro ao ler dados do banco: {e}")
     finally:
         if 'conn' in locals() and conn:
             conn.close()
+            
     return df
 
 def salvar_dados_sql(df_compras_para_salvar):
