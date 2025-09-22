@@ -79,7 +79,7 @@ def salvar_dados_sql(df_compras_para_salvar):
         # Usa uma transação para garantir que todos os inserts sejam bem-sucedidos
         with conn.transaction() as tx:
             for i, row in df_compras_para_salvar.iterrows():
-                print(f"Tentando inserir a linha {i}: {row.['nome_produto']}")
+                print(f"Tentando inserir a linha {i}: {row['nome_produto']}")
                 tx.execute(
                     """INSERT INTO compras (data_compra, nome_produto, fornecedor, quantidade_comprada, unidade_medida, preco_unitario, numero_nota_fiscal, id_usuario) 
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
