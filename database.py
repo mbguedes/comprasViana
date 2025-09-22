@@ -66,34 +66,46 @@ def ler_dados_sql():
         if conn:
             conn.close()
 
-def salvar_dados_sql(df_compras_para_salvar):
-    """Salva um DataFrame de compras no banco de dados Turso usando uma conexão WebSocket (wss)."""
+# Em database.py
+
+def salvar_dados_sql(df_compras_para_salvar): # Mantemos os argumentos para não quebrar a chamada
+    """Tenta inserir UMA ÚNICA LINHA de dados fixos para teste."""
+    
+    print("\n--- [DEBUG] INICIANDO TESTE DE INSERÇÃO MÍNIMA ---")
     conn = None
     try:
-        # Criamos uma conexão especial WSS apenas para esta função que precisa de transações.
-        url = st.secrets["TURSO_DB_URL"]
-        auth_token = st.secrets["TURSO_AUTH_TOKEN"]
-        if url.startswith("libsql://"):
-            url = url.replace("libsql://", "wss://") # Força o uso de WSS
+        # Vamos usar a conexão padrão (https) para este teste, que é mais simples
+        conn = get_db_connection()
+        print("[DEBUG] Conexão (HTTPS) estabelecida para o teste.")
         
-        conn = libsql_client.create_client_sync(url=url, auth_token=auth_token)
-
-
-        with conn.transaction() as tx:
-            for _, row in df_compras_para_salvar.iterrows():
-                tx.execute(
-                    """INSERT INTO compras (data_compra, nome_produto, fornecedor, quantidade_comprada, unidade_medida, preco_unitario, numero_nota_fiscal, id_usuario) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                    (row['data_compra'], row['nome_produto'], row['fornecedor'], row['quantidade_comprada'], row['unidade_medida'], row['preco_unitario'], row['numero_nota_fiscal'], row['id_usuario'])
-                )
+        # Criamos uma tupla com dados de teste fixos
+        dados_fixos = (
+            '2025-01-01', 'PRODUTO DE TESTE', 'FORNECEDOR DE TESTE',
+            1.0, 'Un', 123.45, 'NOTA_FISCAL_TESTE', 
+            st.session_state.get('user_id', 999) # Pega o id do usuário ou usa 999
+        )
+        
+        print(f"[DEBUG] Tentando inserir dados fixos: {dados_fixos}")
+        
+        # Executamos uma única inserção, sem transação
+        conn.execute(
+            """INSERT INTO compras (data_compra, nome_produto, fornecedor, quantidade_comprada, unidade_medida, preco_unitario, numero_nota_fiscal, id_usuario) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            dados_fixos
+        )
+        
+        print("[DEBUG] Comando INSERT executado com sucesso.")
         return True
+        
     except Exception as e:
-        st.error(f"Erro detalhado ao salvar dados: {e}")
-        print(f"!!!!!!!!!! ERRO DURANTE O SALVAMENTO !!!!!!!!!!\n{e}")
+        print(f"\n!!!!!!!!!! [ERRO] ERRO NA INSERÇÃO MÍNIMA !!!!!!!!!!\n{e}")
+        st.error(f"Erro na inserção mínima: {e}")
         return False
+        
     finally:
         if conn:
             conn.close()
+            print("[DEBUG] Conexão de teste fechada.")
 
 
 
