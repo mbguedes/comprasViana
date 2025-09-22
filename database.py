@@ -11,7 +11,7 @@ def get_db_connection():
     auth_token = st.secrets["TURSO_AUTH_TOKEN"]
     
     if url.startswith("libsql://"):
-        url = url.replace("libsql://", "https://")
+        url = url.replace("libsql://", "wss://")
         
     return libsql_client.create_client_sync(url=url, auth_token=auth_token)
 
@@ -96,7 +96,7 @@ def salvar_dados_sql(df_compras_para_salvar):
                 print(f"[DEBUG] Inserindo linha {i+1}: {valores_para_inserir}")
                 tx.execute(
                     """INSERT INTO compras (data_compra, nome_produto, fornecedor, quantidade_comprada, unidade_medida, preco_unitario, numero_nota_fiscal, id_usuario) 
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                     valores_para_inserir
                 )
         
