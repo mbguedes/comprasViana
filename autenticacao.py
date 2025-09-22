@@ -1,6 +1,9 @@
 from passlib.context import CryptContext
 from database import get_db_connection
 
+AUTENTICACAO_PY_VERSION = "v3_FINAL_com_fingerprint"
+print(f"[FINGERPRINT] Arquivo autenticacao.py versão {AUTENTICACAO_PY_VERSION} carregado.")
+
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def verify_password(plain_password, hashed_password):
@@ -31,6 +34,7 @@ def check_user(username, password):
     return None
 
 def add_user(username, password):
+    print(f"[FINGERPRINT] Executando add_user da versão: {AUTENTICACAO_PY_VERSION}")
     password_hash = get_password_hash(password)
     conn = None
     try:

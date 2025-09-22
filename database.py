@@ -4,8 +4,12 @@ from datetime import datetime
 import libsql_client
 import os
 
+# --- FINGERPRINT ---
+DATABASE_PY_VERSION = "v4_FINAL_com_fingerprint"
+print(f"[FINGERPRINT] Arquivo database.py versão {DATABASE_PY_VERSION} carregado.")
+
 def get_db_connection(for_transaction: bool = False):
-    """Cria e retorna uma conexão com o banco de dados Turso."""
+    print(f"[FINGERPRINT] get_db_connection (for_transaction={for_transaction}) chamado.")
     url = st.secrets["TURSO_DB_URL"]
     auth_token = st.secrets["TURSO_AUTH_TOKEN"]
     
@@ -70,9 +74,11 @@ def salvar_dados_sql(df_compras_para_salvar):
             conn.close()
 
 def registrar_log(id_usuario, username, acao, detalhes=""):
+    # --- FINGERPRINT ---
+    print(f"[FINGERPRINT] Executando registrar_log da versão: {DATABASE_PY_VERSION}")
     conn = None
     try:
-        conn = get_db_connection(for_transaction=True) # <-- A correção crucial está aqui
+        conn = get_db_connection(for_transaction=True)
         with conn.transaction() as tx:
             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             tx.execute(
