@@ -36,8 +36,7 @@ def add_user(username, password):
     password_hash = get_password_hash(password)
     conn = None
     try:
-        conn = get_db_connection()
-        # Envolve a criação do usuário em uma transação para garantir o commit
+        conn = get_db_connection(for_transaction=True)
         with conn.transaction() as tx:
             tx.execute("INSERT INTO usuarios (username, password_hash) VALUES (?, ?)", (username, password_hash))
         return True

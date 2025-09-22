@@ -94,8 +94,8 @@ def registrar_log(id_usuario, username, acao, detalhes=""):
     """Insere um novo registro na tabela de histórico de atividades."""
     conn = None
     try:
-        conn = get_db_connection()
-        # Envolve a inserção em uma transação para garantir o commit
+        conn = get_db_connection(for_transaction=True)
+
         with conn.transaction() as tx:
             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             tx.execute(
