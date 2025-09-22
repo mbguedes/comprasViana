@@ -40,7 +40,7 @@ def add_user(username, password):
     try:
         conn = get_db_connection(for_transaction=True) # <-- A correção crucial está aqui
         with conn.transaction() as tx:
-            tx.execute("INSERT INTO usuarios (username, password_hash, email) VALUES (?, ?, ?)", (username, password_hash, None))
+            tx.execute("INSERT INTO usuarios (username, password_hash) VALUES (?, ?)", (username, password_hash))
         return True
     except Exception as e:
         print(f"Erro ao adicionar usuário: {e}")

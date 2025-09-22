@@ -23,13 +23,32 @@ def get_db_connection(for_transaction: bool = False):
     return libsql_client.create_client_sync(url=url, auth_token=auth_token)
 
 def criar_banco():
+    """Verifica e cria as tabelas no banco de dados Turso se não existirem."""
     conn = None
     try:
         conn = get_db_connection(for_transaction=True)
         conn.batch([
-            """CREATE TABLE IF NOT EXISTS compras (id INTEGER PRIMARY KEY AUTOINCREMENT, data_compra TEXT NOT NULL, nome_produto TEXT NOT NULL, fornecedor TEXT, quantidade_comprada REAL NOT NULL, unidade_medida TEXT NOT NULL, preco_unitario REAL NOT NULL, numero_nota_fiscal TEXT, id_usuario INTEGER, FOREIGN KEY(id_usuario) REFERENCES usuarios(id));""",
-            """CREATE TABLE IF NOT EXISTS usuarios (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, email TEXT UNIQUE);""",
-            """CREATE TABLE IF NOT EXISTS historico_atividades (id INTEGER PRIMARY KEY AUTOINCREMENT, id_usuario INTEGER, username TEXT NOT NULL, acao TEXT NOT NULL, timestamp TEXT NOT NULL, detalhes TEXT, FOREIGN KEY(id_usuario) REFERENCES usuarios(id));"""
+            # Tabela 'compras' (está correta)
+            """CREATE TABLE IF NOT EXISTS compras (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, data_compra TEXT NOT NULL, nome_produto TEXT NOT NULL,
+                fornecedor TEXT, quantidade_comprada REAL NOT NULL, unidade_medida TEXT NOT NULL,
+                preco_unitario REAL NOT NULL, numero_nota_fiscal TEXT, id_usuario INTEGER,
+                FOREIGN KEY(id_usuario) REFERENCES usuarios(id)
+            );""",
+            
+            # --- CORREÇÃO AQUI ---
+            # Tabela 'usuarios' simplificada, sem o campo 'email'
+            """CREATE TABLE IF NOT EXISTS usuarios (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL
+            );""",
+
+            """CREATE TABLE IF NOT EXISTS historico_atividades (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, id_usuario INTEGER, username TEXT NOT NULL,
+                acao TEXT NOT NULL, timestamp TEXT NOT NULL, detalhes TEXT,
+                FOREIGN KEY(id_usuario) REFERENCES usuarios(id)
+            );"""
         ])
         print("Tabelas verificadas/criadas no Turso com sucesso.")
     except Exception as e:
