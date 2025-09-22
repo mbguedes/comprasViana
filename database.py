@@ -67,26 +67,56 @@ def ler_dados_sql():
             conn.close()
 
 def salvar_dados_sql(df_compras_para_salvar):
-    """Salva um DataFrame de compras no banco de dados Turso."""
+    """Salva um DataFrame de compras no banco de dados Turso com debug super verboso."""
+    
+    # Imprime no log do terminal exatamente o que a função recebeu
+    print("\n--- [DEBUG] INICIANDO PROCESSO DE SALVAMENTO ---")
+    print(f"[DEBUG] DataFrame recebido com {len(df_compras_para_salvar)} linhas.")
+    
+    # Verifica se o DataFrame não está vazio e imprime colunas e tipos de dados
+    if not df_compras_para_salvar.empty:
+        print("[DEBUG] Colunas do DataFrame:", df_compras_para_salvar.columns.tolist())
+        print("[DEBUG] Tipos de dados (dtypes):\n", df_compras_para_salvar.dtypes)
+    
     conn = None
     try:
         conn = get_db_connection()
+        print("[DEBUG] Conexão com o banco de dados Turso estabelecida.")
+        
+        # Usa uma transação para garantir a integridade dos dados
         with conn.transaction() as tx:
-            for _, row in df_compras_para_salvar.iterrows():
+            print("[DEBUG] Transação iniciada.")
+            for i, row in df_compras_para_salvar.iterrows():
+                # Prepara a tupla de valores para inserção
+                valores_para_inserir = (
+                    row['data_compra'], row['nome_produto'], row['fornecedor'],
+                    row['quantidade_comprada'], row['unidade_medida'], row['preco_unitario'],
+                    row['numero_nota_fiscal'], row['id_usuario']
+                )
+                print(f"[DEBUG] Inserindo linha {i+1}: {valores_para_inserir}")
                 tx.execute(
                     """INSERT INTO compras (data_compra, nome_produto, fornecedor, quantidade_comprada, unidade_medida, preco_unitario, numero_nota_fiscal, id_usuario) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                    (row['data_compra'], row['nome_produto'], row['fornecedor'], row['quantidade_comprada'], row['unidade_medida'], row['preco_unitario'], row['numero_nota_fiscal'], row['id_usuario'])
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                    valores_para_inserir
                 )
+        
+        # Se o bloco 'with' terminar sem erros, o commit é automático
+        print("[DEBUG] Transação CONCLUÍDA com sucesso.")
         return True
+        
     except Exception as e:
+        # Imprime o erro detalhado no log do terminal e também na tela do app
+        print("\n\n!!!!!!!!!! [ERRO] ERRO CAPTURADO DURANTE O SALVAMENTO !!!!!!!!!!\n")
+        print(f"[ERRO] TIPO DE EXCEÇÃO: {type(e)}")
+        print(f"[ERRO] MENSAGEM: {e}")
+        print("\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n")
         st.error(f"Erro detalhado ao salvar dados: {e}")
-        # Imprime o erro no log para depuração no Streamlit Cloud
-        print(f"!!!!!!!!!! ERRO DURANTE O SALVAMENTO !!!!!!!!!!\n{e}")
         return False
+        
     finally:
         if conn:
             conn.close()
+            print("[DEBUG] Conexão com o banco fechada.")
 
 def registrar_log(id_usuario, username, acao, detalhes=""):
     """Insere um novo registro na tabela de histórico de atividades no Turso."""
