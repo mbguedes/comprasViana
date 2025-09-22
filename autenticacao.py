@@ -13,7 +13,7 @@ def check_user(username, password):
     conn = None
     user_data = None
     try:
-        conn = get_db_connection() # Leitura usa a conexão padrão (https)
+        conn = get_db_connection()
         rs = conn.execute("SELECT id, password_hash FROM usuarios WHERE username = ?", (username,))
         if rs.rows:
             user_data = rs.rows[0]
@@ -34,7 +34,7 @@ def add_user(username, password):
     password_hash = get_password_hash(password)
     conn = None
     try:
-        conn = get_db_connection(for_transaction=True) # Escrita de usuário usa transação
+        conn = get_db_connection(for_transaction=True)
         with conn.transaction() as tx:
             tx.execute("INSERT INTO usuarios (username, password_hash, email) VALUES (?, ?, ?)", (username, password_hash, None))
         return True

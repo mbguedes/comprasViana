@@ -9,7 +9,6 @@ def get_db_connection(for_transaction: bool = False):
     url = st.secrets["TURSO_DB_URL"]
     auth_token = st.secrets["TURSO_AUTH_TOKEN"]
     
-    # Se for para uma transação de escrita, usa wss. Para o resto (leitura), usa https.
     if for_transaction:
         if url.startswith("libsql://"):
             url = url.replace("libsql://", "wss://")
@@ -22,7 +21,7 @@ def get_db_connection(for_transaction: bool = False):
 def criar_banco():
     conn = None
     try:
-        conn = get_db_connection(for_transaction=True) # Criação de tabelas é uma transação
+        conn = get_db_connection(for_transaction=True)
         conn.batch([
             """CREATE TABLE IF NOT EXISTS compras (id INTEGER PRIMARY KEY AUTOINCREMENT, data_compra TEXT NOT NULL, nome_produto TEXT NOT NULL, fornecedor TEXT, quantidade_comprada REAL NOT NULL, unidade_medida TEXT NOT NULL, preco_unitario REAL NOT NULL, numero_nota_fiscal TEXT, id_usuario INTEGER, FOREIGN KEY(id_usuario) REFERENCES usuarios(id));""",
             """CREATE TABLE IF NOT EXISTS usuarios (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, email TEXT UNIQUE);""",
@@ -38,7 +37,7 @@ def criar_banco():
 def ler_dados_sql():
     conn = None
     try:
-        conn = get_db_connection() # Leitura usa a conexão padrão (https)
+        conn = get_db_connection()
         query = "SELECT c.*, u.username as registrado_por FROM compras c LEFT JOIN usuarios u ON c.id_usuario = u.id ORDER BY c.data_compra DESC"
         rs = conn.execute(query)
         df = pd.DataFrame(rs.rows, columns=rs.columns)
@@ -55,7 +54,7 @@ def ler_dados_sql():
 def salvar_dados_sql(df_compras_para_salvar):
     conn = None
     try:
-        conn = get_db_connection(for_transaction=True) # Escrita em lote usa transação
+        conn = get_db_connection(for_transaction=True)
         with conn.transaction() as tx:
             for _, row in df_compras_para_salvar.iterrows():
                 tx.execute(
@@ -73,7 +72,8 @@ def salvar_dados_sql(df_compras_para_salvar):
 def registrar_log(id_usuario, username, acao, detalhes=""):
     conn = None
     try:
-        conn = get_db_connection(for_transaction=True) # Escrita de log usa transação
+        # --- CORREÇÃO AQUI ---
+        conn = get_db_connection(for_transaction=True)
         with conn.transaction() as tx:
             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             tx.execute(
