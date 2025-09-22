@@ -31,14 +31,15 @@ def check_user(username, password):
             return user_id, username
     return None
 
+# Em autenticacao.py
+
 def add_user(username, password):
-    """Adiciona um novo usuário no banco de dados Turso, garantindo o commit."""
+    """Adiciona um novo usuário no banco de dados Turso."""
     password_hash = get_password_hash(password)
     conn = None
     try:
-        conn = get_db_connection(for_transaction=True)
-        with conn.transaction() as tx:
-            tx.execute("INSERT INTO usuarios (username, password_hash) VALUES (?, ?)", (username, password_hash))
+        conn = get_db_connection()
+        conn.execute("INSERT INTO usuarios (username, password_hash, email) VALUES (?, ?, ?)", (username, password_hash, None))
         return True
     except Exception as e:
         print(f"Erro ao adicionar usuário: {e}")

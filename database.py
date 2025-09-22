@@ -5,20 +5,13 @@ import libsql_client
 import os
 
 # --- FUNÇÃO DE CONEXÃO CENTRALIZADA ---
-def get_db_connection(for_transaction=False):
-    """Cria e retorna uma conexão com o banco de dados Turso."""
+def get_db_connection():
     url = st.secrets["TURSO_DB_URL"]
     auth_token = st.secrets["TURSO_AUTH_TOKEN"]
-    
-    # Se for para uma transação de salvamento em lote, usa wss. Para o resto, usa https.
-    if for_transaction:
-        if url.startswith("libsql://"):
-            url = url.replace("libsql://", "wss://")
-    else:
-        if url.startswith("libsql://"):
-            url = url.replace("libsql://", "https://")
-            
+    if url.startswith("libsql://"):
+        url = url.replace("libsql://", "https://")
     return libsql_client.create_client_sync(url=url, auth_token=auth_token)
+
 
 # --- FUNÇÕES DE MANIPULAÇÃO DO BANCO ---
 def criar_banco():
@@ -70,11 +63,15 @@ def ler_dados_sql():
             conn.close()
 
 def salvar_dados_sql(df_compras_para_salvar):
-    """Salva um DataFrame de compras no banco de dados Turso usando uma transação."""
+    """Salva um DataFrame de compras no banco de dados Turso usando uma conexão WebSocket (wss)."""
     conn = None
     try:
-        # Pede uma conexão específica para transação (wss://)
-        conn = get_db_connection(for_transaction=True)
+        # Cria uma conexão WSS especial APENAS para esta função
+        url = st.secrets["TURSO_DB_URL"]
+        auth_token = st.secrets["TURSO_AUTH_TOKEN"]
+        if url.startswith("libsql://"):
+            url = url.replace("libsql://", "wss://")
+        conn = libsql_client.create_client_sync(url=url, auth_token=auth_token)
         with conn.transaction() as tx:
             for _, row in df_compras_para_salvar.iterrows():
                 tx.execute(
