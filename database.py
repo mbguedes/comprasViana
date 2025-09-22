@@ -65,35 +65,44 @@ def ler_dados_sql():
             
     return df
 
+# Em database.py
+
 def salvar_dados_sql(df_compras_para_salvar):
-    """Salva um DataFrame de compras no banco de dados Turso."""
+    """Salva um DataFrame de compras no banco de dados Turso com debug verboso."""
     print("\n--- INICIANDO PROCESSO DE SALVAMENTO ---")
     print("DataFrame recebido:")
     print(df_compras_para_salvar)
-    print("\nTipos de dados do DataFrame (dtypes):")
-    print(df_compras_para_salvar.dtypes)
-
+    
+    conn = None
     try:
         conn = get_db_connection()
-        print('Conexão com o banco estabelecida com sucesso.')
-        # Usa uma transação para garantir que todos os inserts sejam bem-sucedidos
+        print("Conexão com o banco estabelecida com sucesso.")
+        
         with conn.transaction() as tx:
+            print("Iniciando transação para inserir linhas...")
             for i, row in df_compras_para_salvar.iterrows():
-                print(f"Tentando inserir a linha {i}: {row['nome_produto']}")
+                # --- CORREÇÃO AQUI ---
+                print(f"--> Tentando inserir a linha de índice {i}: {row['nome_produto']}")
                 tx.execute(
                     """INSERT INTO compras (data_compra, nome_produto, fornecedor, quantidade_comprada, unidade_medida, preco_unitario, numero_nota_fiscal, id_usuario) 
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                     (row['data_compra'], row['nome_produto'], row['fornecedor'], row['quantidade_comprada'], row['unidade_medida'], row['preco_unitario'], row['numero_nota_fiscal'], row['id_usuario'])
                 )
             print("Todas as linhas foram preparadas na transação.")
+        
         print("Transação concluída e dados salvos com sucesso.")
         return True
+        
     except Exception as e:
-        st.error(f"Erro ao salvar dados no banco de dados na nuvem: {e}")
+        print(f"\n!!!!!!!!!! ERRO DURANTE O SALVAMENTO !!!!!!!!!!")
+        print(e)
+        st.error(f"Erro detalhado ao salvar dados: {e}")
         return False
+        
     finally:
-        if 'conn' in locals() and conn:
+        if conn:
             conn.close()
+            print("Conexão com o banco fechada.\n")
 
 def registrar_log(id_usuario, username, acao, detalhes=""):
     """Insere um novo registro na tabela de histórico de atividades no Turso."""
