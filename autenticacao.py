@@ -10,11 +10,10 @@ def get_password_hash(password):
     return pwd_context.hash(password)
 
 def check_user(username, password):
-    """Verifica o usuário no banco de dados Turso."""
     conn = None
     user_data = None
     try:
-        conn = get_db_connection()
+        conn = get_db_connection() # Leitura usa a conexão padrão (https)
         rs = conn.execute("SELECT id, password_hash FROM usuarios WHERE username = ?", (username,))
         if rs.rows:
             user_data = rs.rows[0]
@@ -31,15 +30,13 @@ def check_user(username, password):
             return user_id, username
     return None
 
-# Em autenticacao.py
-
 def add_user(username, password):
-    """Adiciona um novo usuário no banco de dados Turso."""
     password_hash = get_password_hash(password)
     conn = None
     try:
-        conn = get_db_connection()
-        conn.execute("INSERT INTO usuarios (username, password_hash, email) VALUES (?, ?, ?)", (username, password_hash, None))
+        conn = get_db_connection(for_transaction=True) # Escrita de usuário usa transação
+        with conn.transaction() as tx:
+            tx.execute("INSERT INTO usuarios (username, password_hash, email) VALUES (?, ?, ?)", (username, password_hash, None))
         return True
     except Exception as e:
         print(f"Erro ao adicionar usuário: {e}")

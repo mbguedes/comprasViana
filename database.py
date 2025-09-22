@@ -4,38 +4,29 @@ from datetime import datetime
 import libsql_client
 import os
 
-# --- FUNÇÃO DE CONEXÃO CENTRALIZADA ---
-def get_db_connection():
+def get_db_connection(for_transaction: bool = False):
+    """Cria e retorna uma conexão com o banco de dados Turso."""
     url = st.secrets["TURSO_DB_URL"]
     auth_token = st.secrets["TURSO_AUTH_TOKEN"]
-    if url.startswith("libsql://"):
-        url = url.replace("libsql://", "https://")
+    
+    # Se for para uma transação de escrita, usa wss. Para o resto (leitura), usa https.
+    if for_transaction:
+        if url.startswith("libsql://"):
+            url = url.replace("libsql://", "wss://")
+    else:
+        if url.startswith("libsql://"):
+            url = url.replace("libsql://", "https://")
+            
     return libsql_client.create_client_sync(url=url, auth_token=auth_token)
 
-
-# --- FUNÇÕES DE MANIPULAÇÃO DO BANCO ---
 def criar_banco():
-    """Verifica e cria as tabelas no banco de dados Turso se não existirem."""
     conn = None
     try:
-        # Para criar tabelas, a conexão padrão (https) é suficiente
-        conn = get_db_connection()
+        conn = get_db_connection(for_transaction=True) # Criação de tabelas é uma transação
         conn.batch([
-            """CREATE TABLE IF NOT EXISTS compras (
-                id INTEGER PRIMARY KEY AUTOINCREMENT, data_compra TEXT NOT NULL, nome_produto TEXT NOT NULL,
-                fornecedor TEXT, quantidade_comprada REAL NOT NULL, unidade_medida TEXT NOT NULL,
-                preco_unitario REAL NOT NULL, numero_nota_fiscal TEXT, id_usuario INTEGER,
-                FOREIGN KEY(id_usuario) REFERENCES usuarios(id)
-            );""",
-            """CREATE TABLE IF NOT EXISTS usuarios (
-                id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL,
-                email TEXT UNIQUE
-            );""",
-            """CREATE TABLE IF NOT EXISTS historico_atividades (
-                id INTEGER PRIMARY KEY AUTOINCREMENT, id_usuario INTEGER, username TEXT NOT NULL,
-                acao TEXT NOT NULL, timestamp TEXT NOT NULL, detalhes TEXT,
-                FOREIGN KEY(id_usuario) REFERENCES usuarios(id)
-            );"""
+            """CREATE TABLE IF NOT EXISTS compras (id INTEGER PRIMARY KEY AUTOINCREMENT, data_compra TEXT NOT NULL, nome_produto TEXT NOT NULL, fornecedor TEXT, quantidade_comprada REAL NOT NULL, unidade_medida TEXT NOT NULL, preco_unitario REAL NOT NULL, numero_nota_fiscal TEXT, id_usuario INTEGER, FOREIGN KEY(id_usuario) REFERENCES usuarios(id));""",
+            """CREATE TABLE IF NOT EXISTS usuarios (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, email TEXT UNIQUE);""",
+            """CREATE TABLE IF NOT EXISTS historico_atividades (id INTEGER PRIMARY KEY AUTOINCREMENT, id_usuario INTEGER, username TEXT NOT NULL, acao TEXT NOT NULL, timestamp TEXT NOT NULL, detalhes TEXT, FOREIGN KEY(id_usuario) REFERENCES usuarios(id));"""
         ])
         print("Tabelas verificadas/criadas no Turso com sucesso.")
     except Exception as e:
@@ -45,10 +36,9 @@ def criar_banco():
             conn.close()
 
 def ler_dados_sql():
-    """Lê todos os dados da tabela 'compras' do Turso e retorna como um DataFrame."""
     conn = None
     try:
-        conn = get_db_connection()
+        conn = get_db_connection() # Leitura usa a conexão padrão (https)
         query = "SELECT c.*, u.username as registrado_por FROM compras c LEFT JOIN usuarios u ON c.id_usuario = u.id ORDER BY c.data_compra DESC"
         rs = conn.execute(query)
         df = pd.DataFrame(rs.rows, columns=rs.columns)
@@ -63,20 +53,13 @@ def ler_dados_sql():
             conn.close()
 
 def salvar_dados_sql(df_compras_para_salvar):
-    """Salva um DataFrame de compras no banco de dados Turso usando uma conexão WebSocket (wss)."""
     conn = None
     try:
-        # Cria uma conexão WSS especial APENAS para esta função
-        url = st.secrets["TURSO_DB_URL"]
-        auth_token = st.secrets["TURSO_AUTH_TOKEN"]
-        if url.startswith("libsql://"):
-            url = url.replace("libsql://", "wss://")
-        conn = libsql_client.create_client_sync(url=url, auth_token=auth_token)
+        conn = get_db_connection(for_transaction=True) # Escrita em lote usa transação
         with conn.transaction() as tx:
             for _, row in df_compras_para_salvar.iterrows():
                 tx.execute(
-                    """INSERT INTO compras (data_compra, nome_produto, fornecedor, quantidade_comprada, unidade_medida, preco_unitario, numero_nota_fiscal, id_usuario) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                    """INSERT INTO compras (data_compra, nome_produto, fornecedor, quantidade_comprada, unidade_medida, preco_unitario, numero_nota_fiscal, id_usuario) VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                     (row['data_compra'], row['nome_produto'], row['fornecedor'], row['quantidade_comprada'], row['unidade_medida'], row['preco_unitario'], row['numero_nota_fiscal'], row['id_usuario'])
                 )
         return True
@@ -88,11 +71,9 @@ def salvar_dados_sql(df_compras_para_salvar):
             conn.close()
 
 def registrar_log(id_usuario, username, acao, detalhes=""):
-    """Insere um novo registro na tabela de histórico de atividades."""
     conn = None
     try:
-        conn = get_db_connection(for_transaction=True)
-
+        conn = get_db_connection(for_transaction=True) # Escrita de log usa transação
         with conn.transaction() as tx:
             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             tx.execute(
@@ -104,6 +85,3 @@ def registrar_log(id_usuario, username, acao, detalhes=""):
     finally:
         if conn:
             conn.close()
-
-if __name__ == '__main__':
-    criar_banco()
