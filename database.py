@@ -67,18 +67,26 @@ def ler_dados_sql():
 
 def salvar_dados_sql(df_compras_para_salvar):
     """Salva um DataFrame de compras no banco de dados Turso."""
+    print("\n--- INICIANDO PROCESSO DE SALVAMENTO ---")
+    print("DataFrame recebido:")
+    print(df_compras_para_salvar)
+    print("\nTipos de dados do DataFrame (dtypes):")
+    print(df_compras_para_salvar.dtypes)
+
     try:
         conn = get_db_connection()
+        print('Conexão com o banco estabelecida com sucesso.')
         # Usa uma transação para garantir que todos os inserts sejam bem-sucedidos
         with conn.transaction() as tx:
-            for _, row in df_compras_para_salvar.iterrows():
+            for i, row in df_compras_para_salvar.iterrows():
+                print(f"Tentando inserir a linha {i}: {row.['nome_produto']}")
                 tx.execute(
-                    """
-                    INSERT INTO compras (data_compra, nome_produto, fornecedor, quantidade_comprada, unidade_medida, preco_unitario, numero_nota_fiscal, id_usuario) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
+                    """INSERT INTO compras (data_compra, nome_produto, fornecedor, quantidade_comprada, unidade_medida, preco_unitario, numero_nota_fiscal, id_usuario) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                     (row['data_compra'], row['nome_produto'], row['fornecedor'], row['quantidade_comprada'], row['unidade_medida'], row['preco_unitario'], row['numero_nota_fiscal'], row['id_usuario'])
                 )
+            print("Todas as linhas foram preparadas na transação.")
+        print("Transação concluída e dados salvos com sucesso.")
         return True
     except Exception as e:
         st.error(f"Erro ao salvar dados no banco de dados na nuvem: {e}")
