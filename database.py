@@ -72,8 +72,7 @@ def salvar_dados_sql(df_compras_para_salvar):
 def registrar_log(id_usuario, username, acao, detalhes=""):
     conn = None
     try:
-        # --- CORREÇÃO AQUI ---
-        conn = get_db_connection(for_transaction=True)
+        conn = get_db_connection(for_transaction=True) # <-- A correção crucial está aqui
         with conn.transaction() as tx:
             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             tx.execute(

@@ -34,7 +34,7 @@ def add_user(username, password):
     password_hash = get_password_hash(password)
     conn = None
     try:
-        conn = get_db_connection(for_transaction=True)
+        conn = get_db_connection(for_transaction=True) # <-- A correção crucial está aqui
         with conn.transaction() as tx:
             tx.execute("INSERT INTO usuarios (username, password_hash, email) VALUES (?, ?, ?)", (username, password_hash, None))
         return True
