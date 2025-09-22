@@ -1,5 +1,5 @@
 from passlib.context import CryptContext
-from database import get_db_connection # Importa nossa nova função de conexão
+from database import get_db_connection
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -11,6 +11,7 @@ def get_password_hash(password):
 
 def check_user(username, password):
     """Verifica o usuário no banco de dados Turso."""
+    conn = None
     user_data = None
     try:
         conn = get_db_connection()
@@ -20,7 +21,7 @@ def check_user(username, password):
     except Exception as e:
         print(f"Erro ao checar usuário: {e}")
     finally:
-        if 'conn' in locals() and conn:
+        if conn:
             conn.close()
 
     if user_data:
@@ -31,15 +32,18 @@ def check_user(username, password):
     return None
 
 def add_user(username, password):
-    """Adiciona um novo usuário no banco de dados Turso."""
+    """Adiciona um novo usuário no banco de dados Turso, garantindo o commit."""
     password_hash = get_password_hash(password)
+    conn = None
     try:
         conn = get_db_connection()
-        conn.execute("INSERT INTO usuarios (username, password_hash) VALUES (?, ?)", (username, password_hash))
+        # Envolve a criação do usuário em uma transação para garantir o commit
+        with conn.transaction() as tx:
+            tx.execute("INSERT INTO usuarios (username, password_hash) VALUES (?, ?)", (username, password_hash))
         return True
-    except Exception as e: # Captura erro genérico (ex: usuário já existe)
+    except Exception as e:
         print(f"Erro ao adicionar usuário: {e}")
         return False
     finally:
-        if 'conn' in locals() and conn:
+        if conn:
             conn.close()
