@@ -7,7 +7,7 @@ import os
 from dotenv import load_dotenv
 
 def get_db_connection():
-    """Cria e retorna uma conexao com o banco de dados PostgreSQL."""
+    """Cria e retorna uma conexão com o banco de dados PostgreSQL."""
     conn_str = ""
     try:
         conn_str = st.secrets["DATABASE_URL"]
@@ -16,7 +16,7 @@ def get_db_connection():
         conn_str = os.getenv("DATABASE_URL")
     
     if not conn_str:
-        raise ValueError("URL do banco de dados nao encontrada.")
+        raise ValueError("URL do banco de dados não encontrada.")
         
     return psycopg2.connect(conn_str, client_encoding='UTF8')
 
@@ -33,8 +33,8 @@ def criar_banco():
         cursor = conn.cursor()
         for command in commands:
             cursor.execute(command)
-        cursor.close()
         conn.commit()
+        cursor.close()
         print("✅ Tabelas verificadas/criadas no PostgreSQL com sucesso.")
     except Exception as e:
         print(f"❌ Erro ao criar tabelas no PostgreSQL: {e}")
@@ -43,7 +43,7 @@ def criar_banco():
             conn.close()
 
 def ler_dados_sql():
-    """Le todos os dados da tabela 'compras' do Postgres."""
+    """Lê todos os dados da tabela 'compras' do Postgres."""
     conn = None
     try:
         conn = get_db_connection()
@@ -60,6 +60,7 @@ def ler_dados_sql():
 def salvar_dados_sql(df_compras_para_salvar):
     """Salva um DataFrame de compras no banco de dados PostgreSQL."""
     conn = None
+    cursor = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -69,19 +70,22 @@ def salvar_dados_sql(df_compras_para_salvar):
                 (row['data_compra'], row['nome_produto'], row['fornecedor'], row['quantidade_comprada'], row['unidade_medida'], row['preco_unitario'], row['numero_nota_fiscal'], row['id_usuario'])
             )
         conn.commit()
-        cursor.close()
         return True
     except Exception as e:
+        if conn:
+            conn.rollback()
         st.error(f"Erro detalhado ao salvar dados: {e}")
-        conn.rollback()
         return False
     finally:
+        if cursor:
+            cursor.close()
         if conn:
             conn.close()
 
 def registrar_log(id_usuario, username, acao, detalhes=""):
-    """Insere um novo registro na tabela de historico de atividades no PostgreSQL."""
+    """Insere um novo registro na tabela de histórico de atividades no PostgreSQL."""
     conn = None
+    cursor = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -89,12 +93,13 @@ def registrar_log(id_usuario, username, acao, detalhes=""):
         sql = "INSERT INTO historico_atividades (id_usuario, username, acao, timestamp, detalhes) VALUES (%s, %s, %s, %s, %s)"
         cursor.execute(sql, (id_usuario, username, acao, timestamp, detalhes))
         conn.commit()
-        cursor.close()
     except Exception as e:
-        st.error(f"Erro ao registrar log: {e}")
         if conn:
             conn.rollback()
+        st.error(f"Erro ao registrar log: {e}")
     finally:
+        if cursor:
+            cursor.close()
         if conn:
             conn.close()
 

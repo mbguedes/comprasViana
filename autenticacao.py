@@ -13,16 +13,18 @@ def get_password_hash(password):
 def check_user(username, password):
     """Verifica o usuário no banco de dados PostgreSQL."""
     conn = None
+    cursor = None
     user_data = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT id, password_hash FROM usuarios WHERE username = %s", (username,))
         user_data = cursor.fetchone()
-        cursor.close()
     except Exception as e:
         print(f"Erro ao checar usuário: {e}")
     finally:
+        if cursor:
+            cursor.close()
         if conn:
             conn.close()
 
@@ -40,23 +42,23 @@ def add_user(username, password):
         
     password_hash = get_password_hash(password)
     conn = None
+    cursor = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("INSERT INTO usuarios (username, password_hash) VALUES (%s, %s)", (username, password_hash))
         conn.commit()
-        cursor.close()
         return "Success"
     except psycopg2.Error as e:
-        # A correção definitiva: verificamos se a conexão foi estabelecida antes do rollback
         if conn:
             conn.rollback()
-            
-        if hasattr(e, 'pgcode') and e.pgcode == '23505':
+        if hasattr(e, 'pgcode') and e.pgcode == '23505': # Código de erro para UNIQUE constraint
             return "Este nome de usuário já existe."
         else:
             print(f"Erro inesperado ao adicionar usuário: {e}")
             return f"Erro inesperado no banco de dados: {e}"
     finally:
+        if cursor:
+            cursor.close()
         if conn:
             conn.close()
