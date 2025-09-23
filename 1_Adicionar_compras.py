@@ -52,14 +52,19 @@ if not st.session_state.logged_in:
         with st.form("signup_form"):
             new_username = st.text_input("Novo Usuário")
             new_password = st.text_input("Nova Senha", type="password")
+            signup_keyword = st.text_input("Palavra-chave de Acesso", type="password", key="signup_keyword")
             signup_button = st.form_submit_button("Criar Conta")
             
             if signup_button:
-                if add_user(new_username, new_password):
-                    st.success("Conta criada com sucesso! Por favor, faça o login.")
-                    st.balloons()
+                if signup_keyword == st.secrets["SIGNUP_KEYWORD"]:
+                    resultado = add_user(new_username, new_password)
+                    if resultado == "Success":
+                        st.success("Conta criada com sucesso! Por favor, faça o login.")
+                        st.balloons()
+                    else:
+                        st.error(resultado)
                 else:
-                    st.error("Este nome de usuário já existe.")
+                    st.error("Palavra-chave de acesso incorreta.")
 else:
     # --- APLICAÇÃO PRINCIPAL (SÓ APARECE DEPOIS DO LOGIN) ---
     

@@ -33,18 +33,28 @@ def check_user(username, password):
             return user_id, username
     return None
 
+# Em autenticacao.py
+
 def add_user(username, password):
-    print(f"[FINGERPRINT] Executando add_user da versão: {AUTENTICACAO_PY_VERSION}")
+    """Adiciona um novo usuário, retornando uma mensagem de sucesso ou o erro específico."""
+    if not username or not password:
+        return "Usuário e senha não podem estar em branco."
+        
     password_hash = get_password_hash(password)
     conn = None
     try:
-        conn = get_db_connection(for_transaction=True) # <-- A correção crucial está aqui
+        conn = get_db_connection(for_transaction=True)
         with conn.transaction() as tx:
             tx.execute("INSERT INTO usuarios (username, password_hash) VALUES (?, ?)", (username, password_hash))
-        return True
+        return "Success"
     except Exception as e:
-        print(f"Erro ao adicionar usuário: {e}")
-        return False
+
+        if "UNIQUE constraint failed" in str(e):
+            return "Este nome de usuário já existe."
+
+        else:
+            print(f"Erro inesperado ao adicionar usuário: {e}")
+            return f"Erro inesperado no banco de dados. Tente novamente." 
     finally:
         if conn:
             conn.close()
