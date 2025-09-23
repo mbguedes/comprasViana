@@ -5,38 +5,34 @@ import libsql_client
 import os
 from dotenv import load_dotenv
 
-# --- FUNÇÃO DE CONEXÃO HÍBRIDA ---
 def get_db_connection():
     """Cria e retorna uma conexão HTTP com o banco de dados Turso."""
-    url = st.secrets["TURSO_DB_URL"]
-    auth_token = st.secrets["TURSO_AUTH_TOKEN"]
+    url, auth_token = (None, None)
+    try:
+        url = st.secrets["TURSO_DB_URL"]
+        auth_token = st.secrets["TURSO_AUTH_TOKEN"]
+    except Exception:
+        load_dotenv()
+        url = os.getenv("TURSO_DB_URL")
+        auth_token = os.getenv("TURSO_AUTH_TOKEN")
+        
+    if not url or not auth_token:
+        raise ValueError("Credenciais do banco de dados não encontradas.")
+
     if url.startswith("libsql://"):
         url = url.replace("libsql://", "https://")
+            
     return libsql_client.create_client_sync(url=url, auth_token=auth_token)
 
-# --- FUNÇÕES DE MANIPULAÇÃO DO BANCO ---
 def criar_banco():
     """Verifica e cria as tabelas no banco de dados Turso se não existirem."""
     conn = None
     try:
-        conn = get_db_connection(for_transaction=True)
+        conn = get_db_connection()
         conn.batch([
-            """CREATE TABLE IF NOT EXISTS compras (
-                id INTEGER PRIMARY KEY AUTOINCREMENT, data_compra TEXT NOT NULL, nome_produto TEXT NOT NULL,
-                fornecedor TEXT, quantidade_comprada REAL NOT NULL, unidade_medida TEXT NOT NULL,
-                preco_unitario REAL NOT NULL, numero_nota_fiscal TEXT, id_usuario INTEGER,
-                FOREIGN KEY(id_usuario) REFERENCES usuarios(id)
-            );""",
-            """CREATE TABLE IF NOT EXISTS usuarios (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT UNIQUE NOT NULL,
-                password_hash TEXT NOT NULL
-            );""",
-            """CREATE TABLE IF NOT EXISTS historico_atividades (
-                id INTEGER PRIMARY KEY AUTOINCREMENT, id_usuario INTEGER, username TEXT NOT NULL,
-                acao TEXT NOT NULL, timestamp TEXT NOT NULL, detalhes TEXT,
-                FOREIGN KEY(id_usuario) REFERENCES usuarios(id)
-            );"""
+            """CREATE TABLE IF NOT EXISTS compras (id INTEGER PRIMARY KEY AUTOINCREMENT, data_compra TEXT NOT NULL, nome_produto TEXT NOT NULL, fornecedor TEXT, quantidade_comprada REAL NOT NULL, unidade_medida TEXT NOT NULL, preco_unitario REAL NOT NULL, numero_nota_fiscal TEXT, id_usuario INTEGER, FOREIGN KEY(id_usuario) REFERENCES usuarios(id));""",
+            """CREATE TABLE IF NOT EXISTS usuarios (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL);""",
+            """CREATE TABLE IF NOT EXISTS historico_atividades (id INTEGER PRIMARY KEY AUTOINCREMENT, id_usuario INTEGER, username TEXT NOT NULL, acao TEXT NOT NULL, timestamp TEXT NOT NULL, detalhes TEXT, FOREIGN KEY(id_usuario) REFERENCES usuarios(id));"""
         ])
         print("✅ Tabelas verificadas/criadas no Turso com sucesso.")
     except Exception as e:
@@ -67,17 +63,9 @@ def salvar_dados_sql(df_compras_para_salvar):
     conn = None
     try:
         conn = get_db_connection()
-        
-        # 1. Prepara a instrução SQL
-        sql = """INSERT INTO compras (data_compra, nome_produto, fornecedor, quantidade_comprada, unidade_medida, preco_unitario, numero_nota_fiscal, id_usuario) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)"""
-        
-        # 2. Converte o DataFrame para uma lista de tuplas, que é o formato que a função espera
+        sql = "INSERT INTO compras (data_compra, nome_produto, fornecedor, quantidade_comprada, unidade_medida, preco_unitario, numero_nota_fiscal, id_usuario) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
         lista_de_valores = df_compras_para_salvar.to_records(index=False).tolist()
-        
-        # 3. Executa a inserção de múltiplos registros de uma vez
         conn.execute_multiple(sql, lista_de_valores)
-        
         return True
     except Exception as e:
         st.error(f"Erro detalhado ao salvar dados: {e}")
@@ -87,14 +75,12 @@ def salvar_dados_sql(df_compras_para_salvar):
             conn.close()
 
 def registrar_log(id_usuario, username, acao, detalhes=""):
-    """Insere um novo registro na tabela de histórico de atividades."""
     conn = None
     try:
         conn = get_db_connection()
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        # Execução simples, que já sabemos que funciona
         conn.execute(
-            """INSERT INTO historico_atividades (id_usuario, username, acao, timestamp, detalhes) VALUES (?, ?, ?, ?, ?)""",
+            "INSERT INTO historico_atividades (id_usuario, username, acao, timestamp, detalhes) VALUES (?, ?, ?, ?, ?)",
             (id_usuario, username, acao, timestamp, detalhes)
         )
     except Exception as e:
