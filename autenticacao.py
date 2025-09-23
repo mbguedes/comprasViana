@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import psycopg2
 from passlib.context import CryptContext
 from database import get_db_connection
@@ -18,7 +17,6 @@ def check_user(username, password):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        # A sintaxe do placeholder no psycopg2 é '%s'
         cursor.execute("SELECT id, password_hash FROM usuarios WHERE username = %s", (username,))
         user_data = cursor.fetchone()
         cursor.close()
@@ -36,7 +34,7 @@ def check_user(username, password):
     return None
 
 def add_user(username, password):
-    """Adiciona um novo usuário, retornando uma mensagem de sucesso ou o erro específico."""
+    """Adiciona um novo usuário, com tratamento de erro de conexão robusto."""
     if not username or not password:
         return "Usuário e senha não podem estar em branco."
         
@@ -49,9 +47,12 @@ def add_user(username, password):
         conn.commit()
         cursor.close()
         return "Success"
-    except psycopg2.Error as e: # Captura erro específico do Postgres
-        conn.rollback()
-        if e.pgcode == '23505': # Código de erro para violação de constraint UNIQUE
+    except psycopg2.Error as e:
+        # A correção definitiva: verificamos se a conexão foi estabelecida antes do rollback
+        if conn:
+            conn.rollback()
+            
+        if hasattr(e, 'pgcode') and e.pgcode == '23505':
             return "Este nome de usuário já existe."
         else:
             print(f"Erro inesperado ao adicionar usuário: {e}")
