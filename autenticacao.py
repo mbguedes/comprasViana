@@ -45,11 +45,7 @@ def add_user(username, password):
             tx.execute("INSERT INTO usuarios (username, password_hash) VALUES (?, ?)", (username, password_hash))
         return "Success"
     except Exception as e:
-        if "UNIQUE constraint failed" in str(e):
-            return "Este nome de usuário já existe."
-        else:
-            print(f"Erro inesperado ao adicionar usuário: {e}")
-            return "Erro inesperado no banco de dados. Tente novamente."
+        return f"ERRO REAL DO BANCO: {str(e)}"
     finally:
         if conn:
             conn.close()

@@ -58,8 +58,6 @@ if not st.session_state.logged_in:
             
             if signup_button:
                 if signup_keyword == st.secrets.get("SIGNUP_KEYWORD", ""):
-
-
                     st.info("DEBUG: Botão 'Criar Conta' clicado. Chamando a função add_user...")
                     print(">>> DEBUG: Botão 'Criar Conta' clicado. Chamando a função add_user...")
                     resultado = add_user(new_username, new_password)
