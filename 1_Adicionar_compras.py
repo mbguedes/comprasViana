@@ -17,7 +17,7 @@ if 'logged_in' not in st.session_state:
 if 'compras_stage' not in st.session_state:
     st.session_state.compras_stage = []
 
-# --- TELA DE LOGIN / CADASTRO ---
+# --- TELA DE LOGIN / CADASTRO (SÓ APARECE SE NÃO ESTIVER LOGADO) ---
 if not st.session_state.logged_in:
     st.title("Bem-vindo ao Controle de Compras Viana")
     
@@ -31,13 +31,36 @@ if not st.session_state.logged_in:
             login_button = st.form_submit_button("Login")
             
             if login_button:
-                # (Lógica de login continua a mesma)
-                pass # Cole sua lógica de login aqui
+                if access_key_login == st.secrets.get("SIGNUP_KEYWORD", ""):
+                    user_info = check_user(username, password)
+                    if user_info:
+                        st.session_state.logged_in = True
+                        st.session_state.user_id = user_info[0]
+                        st.session_state.username = user_info[1]
+                        st.rerun()
+                    else:
+                        st.error("Usuário ou senha incorretos.")
+                else:
+                    st.error("Palavra-chave de acesso incorreta.")
 
     with signup_tab:
         with st.form("signup_form"):
-            # (Lógica de criar conta continua a mesma)
-            pass # Cole sua lógica de signup aqui
+            new_username = st.text_input("Novo Usuário")
+            new_password = st.text_input("Nova Senha", type="password")
+            signup_keyword = st.text_input("Palavra-chave de Acesso", type="password", key="signup_keyword")
+            
+            signup_button = st.form_submit_button("Criar Conta")
+            
+            if signup_button:
+                if signup_keyword == st.secrets.get("SIGNUP_KEYWORD", ""):
+                    resultado = add_user(new_username, new_password)
+                    if resultado == "Success":
+                        st.success("Conta criada com sucesso! Por favor, faça o login.")
+                        st.balloons()
+                    else:
+                        st.error(resultado)
+                else:
+                    st.error("Palavra-chave de acesso incorreta.")
 else:
     # --- APLICAÇÃO PRINCIPAL (SÓ APARECE DEPOIS DO LOGIN) ---
     
@@ -46,8 +69,6 @@ else:
         for key in list(st.session_state.keys()):
             del st.session_state[key]
         st.rerun()
-
-    # --- A FUNÇÃO DUPLICADA FOI REMOVIDA DAQUI ---
 
     # --- INÍCIO DA INTERFACE PRINCIPAL ---
     st.title("📝 Restaurante Viana Praia")
@@ -100,7 +121,7 @@ else:
         col_final1, col_final2 = st.columns(2)
         with col_final1:
             if st.button("💾 Salvar Compras no Banco de Dados", type="primary"):
-                if salvar_dados_sql(df_stage): # Agora esta chamada usa a função CORRETA do database.py
+                if salvar_dados_sql(df_stage):
                     detalhes_log = f"O usuário salvou {len(df_stage)} novos itens de compra."
                     registrar_log(
                         id_usuario=st.session_state.user_id,
