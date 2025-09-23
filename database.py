@@ -58,29 +58,43 @@ def ler_dados_sql():
             conn.close()
 
 def salvar_dados_sql(df_compras_para_salvar):
-    """Salva um DataFrame de compras no banco de dados PostgreSQL."""
+    """Salva um DataFrame de compras, com prints de debug detalhados."""
     conn = None
-    cursor = None
+    print(f"--- [DEBUG {datetime.now()}] FUNÇÃO salvar_dados_sql INICIADA ---")
     try:
         conn = get_db_connection()
+        print(f"--- [DEBUG {datetime.now()}] Conexão com o banco estabelecida.")
         cursor = conn.cursor()
-        for _, row in df_compras_para_salvar.iterrows():
+        
+        for i, row in df_compras_para_salvar.iterrows():
+            valores = (
+                str(row['data_compra']), str(row['nome_produto']), str(row['fornecedor']),
+                float(row['quantidade_comprada']), str(row['unidade_medida']), float(row['preco_unitario']),
+                str(row['numero_nota_fiscal']), int(row['id_usuario'])
+            )
+            print(f"--- [DEBUG {datetime.now()}] Loop {i+1}: Preparando para inserir -> {valores}")
             cursor.execute(
                 "INSERT INTO compras (data_compra, nome_produto, fornecedor, quantidade_comprada, unidade_medida, preco_unitario, numero_nota_fiscal, id_usuario) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-                (row['data_compra'], row['nome_produto'], row['fornecedor'], row['quantidade_comprada'], row['unidade_medida'], row['preco_unitario'], row['numero_nota_fiscal'], row['id_usuario'])
+                valores
             )
+        
+        print(f"--- [DEBUG {datetime.now()}] Loop concluído. EXECUTANDO COMMIT... ---")
         conn.commit()
+        print(f"--- [DEBUG {datetime.now()}] COMMIT EXECUTADO COM SUCESSO. ---")
+        
+        cursor.close()
+        print(f"--- [DEBUG {datetime.now()}] Cursor fechado. Retornando True.")
         return True
     except Exception as e:
         if conn:
             conn.rollback()
+        print(f"!!!!!!!!!! [ERRO {datetime.now()}] ERRO EM salvar_dados_sql !!!!!!!!!!\n{e}")
         st.error(f"Erro detalhado ao salvar dados: {e}")
         return False
     finally:
-        if cursor:
-            cursor.close()
         if conn:
             conn.close()
+            print(f"--- [DEBUG {datetime.now()}] Conexão final fechada.")
 
 def registrar_log(id_usuario, username, acao, detalhes=""):
     """Insere um novo registro na tabela de histórico de atividades no PostgreSQL."""
