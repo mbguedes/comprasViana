@@ -58,21 +58,38 @@ def ler_dados_sql():
         if conn:
             conn.close()
 
+# --- FUNÇÃO DE SALVAR REESCRITA (ABORDAGEM FINAL) ---
 def salvar_dados_sql(df_compras_para_salvar):
-    """Salva um DataFrame de compras no banco de dados Turso usando execute_multiple."""
-    conn = None
+    """Salva um DataFrame de compras, inserindo uma linha de cada vez de forma explícita."""
     try:
-        conn = get_db_connection()
-        sql = "INSERT INTO compras (data_compra, nome_produto, fornecedor, quantidade_comprada, unidade_medida, preco_unitario, numero_nota_fiscal, id_usuario) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-        lista_de_valores = df_compras_para_salvar.to_records(index=False).tolist()
-        conn.execute_multiple(sql, lista_de_valores)
+        # Itera sobre cada linha do DataFrame para salvar
+        for _, row in df_compras_para_salvar.iterrows():
+            conn = None # Abre uma nova conexão para cada linha
+            try:
+                conn = get_db_connection()
+                
+                # Prepara a tupla de valores para esta linha específica
+                valores = (
+                    row['data_compra'], row['nome_produto'], row['fornecedor'],
+                    row['quantidade_comprada'], row['unidade_medida'], row['preco_unitario'],
+                    row['numero_nota_fiscal'], row['id_usuario']
+                )
+                
+                # Executa a inserção para a linha atual, como fazemos no registrar_log
+                conn.execute(
+                    "INSERT INTO compras (data_compra, nome_produto, fornecedor, quantidade_comprada, unidade_medida, preco_unitario, numero_nota_fiscal, id_usuario) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    valores
+                )
+            finally:
+                if conn:
+                    conn.close() # Fecha a conexão após cada inserção
+
+        # Se o loop terminar sem erros, retorna True
         return True
     except Exception as e:
         st.error(f"Erro detalhado ao salvar dados: {e}")
+        print(f"!!!!!!!!!! ERRO DURANTE O SALVAMENTO (LOOP) !!!!!!!!!!\n{e}")
         return False
-    finally:
-        if conn:
-            conn.close()
 
 def registrar_log(id_usuario, username, acao, detalhes=""):
     conn = None
