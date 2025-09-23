@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import streamlit as st
 import pandas as pd
 from database import salvar_dados_sql # Importamos APENAS a função de salvar

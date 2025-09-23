@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+import psycopg2
 from passlib.context import CryptContext
 from database import get_db_connection
 
@@ -10,14 +12,16 @@ def get_password_hash(password):
     return pwd_context.hash(password)
 
 def check_user(username, password):
-    """Verifica o usuário no banco de dados Turso."""
+    """Verifica o usuário no banco de dados PostgreSQL."""
     conn = None
     user_data = None
     try:
         conn = get_db_connection()
-        rs = conn.execute("SELECT id, password_hash FROM usuarios WHERE username = ?", (username,))
-        if rs.rows:
-            user_data = rs.rows[0]
+        cursor = conn.cursor()
+        # A sintaxe do placeholder no psycopg2 é '%s'
+        cursor.execute("SELECT id, password_hash FROM usuarios WHERE username = %s", (username,))
+        user_data = cursor.fetchone()
+        cursor.close()
     except Exception as e:
         print(f"Erro ao checar usuário: {e}")
     finally:
@@ -40,10 +44,14 @@ def add_user(username, password):
     conn = None
     try:
         conn = get_db_connection()
-        conn.execute("INSERT INTO usuarios (username, password_hash) VALUES (?, ?)", (username, password_hash))
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO usuarios (username, password_hash) VALUES (%s, %s)", (username, password_hash))
+        conn.commit()
+        cursor.close()
         return "Success"
-    except Exception as e:
-        if "UNIQUE constraint failed" in str(e):
+    except psycopg2.Error as e: # Captura erro específico do Postgres
+        conn.rollback()
+        if e.pgcode == '23505': # Código de erro para violação de constraint UNIQUE
             return "Este nome de usuário já existe."
         else:
             print(f"Erro inesperado ao adicionar usuário: {e}")

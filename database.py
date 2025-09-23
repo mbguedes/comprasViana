@@ -1,55 +1,54 @@
+# -*- coding: utf-8 -*-
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-import libsql_client
+import psycopg2
 import os
 from dotenv import load_dotenv
 
 def get_db_connection():
-    """Cria e retorna uma conexão HTTP com o banco de dados Turso."""
-    url, auth_token = (None, None)
+    """Cria e retorna uma conexao com o banco de dados PostgreSQL."""
+    conn_str = ""
     try:
-        url = st.secrets["TURSO_DB_URL"]
-        auth_token = st.secrets["TURSO_AUTH_TOKEN"]
+        conn_str = st.secrets["DATABASE_URL"]
     except Exception:
         load_dotenv()
-        url = os.getenv("TURSO_DB_URL")
-        auth_token = os.getenv("TURSO_AUTH_TOKEN")
+        conn_str = os.getenv("DATABASE_URL")
+    
+    if not conn_str:
+        raise ValueError("URL do banco de dados nao encontrada.")
         
-    if not url or not auth_token:
-        raise ValueError("Credenciais do banco de dados não encontradas.")
-
-    if url.startswith("libsql://"):
-        url = url.replace("libsql://", "https://")
-            
-    return libsql_client.create_client_sync(url=url, auth_token=auth_token)
+    return psycopg2.connect(conn_str, client_encoding='UTF8')
 
 def criar_banco():
-    """Verifica e cria as tabelas no banco de dados Turso se não existirem."""
+    """Verifica e cria as tabelas no banco de dados PostgreSQL."""
+    commands = [
+        """CREATE TABLE IF NOT EXISTS usuarios (id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL);""",
+        """CREATE TABLE IF NOT EXISTS compras (id SERIAL PRIMARY KEY, data_compra DATE NOT NULL, nome_produto TEXT NOT NULL, fornecedor TEXT, quantidade_comprada REAL NOT NULL, unidade_medida TEXT NOT NULL, preco_unitario REAL NOT NULL, numero_nota_fiscal TEXT, id_usuario INTEGER, FOREIGN KEY(id_usuario) REFERENCES usuarios(id));""",
+        """CREATE TABLE IF NOT EXISTS historico_atividades (id SERIAL PRIMARY KEY, id_usuario INTEGER, username TEXT NOT NULL, acao TEXT NOT NULL, timestamp TIMESTAMP NOT NULL, detalhes TEXT, FOREIGN KEY(id_usuario) REFERENCES usuarios(id));"""
+    ]
     conn = None
     try:
         conn = get_db_connection()
-        conn.batch([
-            """CREATE TABLE IF NOT EXISTS compras (id INTEGER PRIMARY KEY AUTOINCREMENT, data_compra TEXT NOT NULL, nome_produto TEXT NOT NULL, fornecedor TEXT, quantidade_comprada REAL NOT NULL, unidade_medida TEXT NOT NULL, preco_unitario REAL NOT NULL, numero_nota_fiscal TEXT, id_usuario INTEGER, FOREIGN KEY(id_usuario) REFERENCES usuarios(id));""",
-            """CREATE TABLE IF NOT EXISTS usuarios (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL);""",
-            """CREATE TABLE IF NOT EXISTS historico_atividades (id INTEGER PRIMARY KEY AUTOINCREMENT, id_usuario INTEGER, username TEXT NOT NULL, acao TEXT NOT NULL, timestamp TEXT NOT NULL, detalhes TEXT, FOREIGN KEY(id_usuario) REFERENCES usuarios(id));"""
-        ])
-        print("✅ Tabelas verificadas/criadas no Turso com sucesso.")
+        cursor = conn.cursor()
+        for command in commands:
+            cursor.execute(command)
+        cursor.close()
+        conn.commit()
+        print("✅ Tabelas verificadas/criadas no PostgreSQL com sucesso.")
     except Exception as e:
-        print(f"❌ Erro ao criar tabelas no Turso: {e}")
+        print(f"❌ Erro ao criar tabelas no PostgreSQL: {e}")
     finally:
         if conn:
             conn.close()
 
 def ler_dados_sql():
+    """Le todos os dados da tabela 'compras' do Postgres."""
     conn = None
     try:
         conn = get_db_connection()
         query = "SELECT c.*, u.username as registrado_por FROM compras c LEFT JOIN usuarios u ON c.id_usuario = u.id ORDER BY c.data_compra DESC"
-        rs = conn.execute(query)
-        df = pd.DataFrame(rs.rows, columns=rs.columns)
-        if not df.empty and 'data_compra' in df.columns:
-            df['data_compra'] = pd.to_datetime(df['data_compra'])
+        df = pd.read_sql_query(query, conn)
         return df
     except Exception as e:
         st.error(f"Erro ao ler dados do banco: {e}")
@@ -59,50 +58,42 @@ def ler_dados_sql():
             conn.close()
 
 def salvar_dados_sql(df_compras_para_salvar):
-    """Salva um DataFrame, forçando a conversão de tipos para cada linha."""
-    try:
-        for _, row in df_compras_para_salvar.iterrows():
-            conn = None 
-            try:
-                conn = get_db_connection()
-                
-
-                valores = (
-                    str(row['data_compra']),
-                    str(row['nome_produto']),
-                    str(row['fornecedor']),
-                    float(row['quantidade_comprada']), # Converte para float padrão
-                    str(row['unidade_medida']),
-                    float(row['preco_unitario']),    # Converte para float padrão
-                    str(row['numero_nota_fiscal']),
-                    int(row['id_usuario'])           # Converte para int padrão
-                )
-                
-                conn.execute(
-                    "INSERT INTO compras (data_compra, nome_produto, fornecedor, quantidade_comprada, unidade_medida, preco_unitario, numero_nota_fiscal, id_usuario) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                    valores
-                )
-            finally:
-                if conn:
-                    conn.close()
-
-        return True
-    except Exception as e:
-        st.error(f"Erro detalhado ao salvar dados: {e}")
-        print(f"!!!!!!!!!! ERRO DURANTE O SALVAMENTO (LOOP) !!!!!!!!!!\n{e}")
-        return False
-
-def registrar_log(id_usuario, username, acao, detalhes=""):
+    """Salva um DataFrame de compras no banco de dados PostgreSQL."""
     conn = None
     try:
         conn = get_db_connection()
-        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        conn.execute(
-            "INSERT INTO historico_atividades (id_usuario, username, acao, timestamp, detalhes) VALUES (?, ?, ?, ?, ?)",
-            (id_usuario, username, acao, timestamp, detalhes)
-        )
+        cursor = conn.cursor()
+        for _, row in df_compras_para_salvar.iterrows():
+            cursor.execute(
+                "INSERT INTO compras (data_compra, nome_produto, fornecedor, quantidade_comprada, unidade_medida, preco_unitario, numero_nota_fiscal, id_usuario) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                (row['data_compra'], row['nome_produto'], row['fornecedor'], row['quantidade_comprada'], row['unidade_medida'], row['preco_unitario'], row['numero_nota_fiscal'], row['id_usuario'])
+            )
+        conn.commit()
+        cursor.close()
+        return True
+    except Exception as e:
+        st.error(f"Erro detalhado ao salvar dados: {e}")
+        conn.rollback()
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+def registrar_log(id_usuario, username, acao, detalhes=""):
+    """Insere um novo registro na tabela de historico de atividades no PostgreSQL."""
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        timestamp = datetime.now()
+        sql = "INSERT INTO historico_atividades (id_usuario, username, acao, timestamp, detalhes) VALUES (%s, %s, %s, %s, %s)"
+        cursor.execute(sql, (id_usuario, username, acao, timestamp, detalhes))
+        conn.commit()
+        cursor.close()
     except Exception as e:
         st.error(f"Erro ao registrar log: {e}")
+        if conn:
+            conn.rollback()
     finally:
         if conn:
             conn.close()
