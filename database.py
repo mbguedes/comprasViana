@@ -3,17 +3,16 @@ import pandas as pd
 from datetime import datetime
 import libsql_client
 import os
-from dotenv import load_dotenv # Importa a nova biblioteca
+from dotenv import load_dotenv
 
 # --- FUNÇÃO DE CONEXÃO HÍBRIDA ---
 def get_db_connection(for_transaction: bool = False):
     """Cria uma conexão com o Turso, lendo segredos do Streamlit Cloud ou de um arquivo .env local."""
-    
-    # Tenta carregar os segredos do Streamlit Cloud
+    url = None
+    auth_token = None
     try:
         url = st.secrets["TURSO_DB_URL"]
         auth_token = st.secrets["TURSO_AUTH_TOKEN"]
-    # Se falhar (estamos em um terminal local), carrega do .env
     except Exception:
         load_dotenv()
         url = os.getenv("TURSO_DB_URL")
@@ -22,7 +21,6 @@ def get_db_connection(for_transaction: bool = False):
     if not url or not auth_token:
         raise ValueError("Credenciais do banco de dados não encontradas. Verifique seus arquivos secrets.toml ou .env")
 
-    # Lógica de protocolo (https vs wss)
     if for_transaction:
         if url.startswith("libsql://"):
             url = url.replace("libsql://", "wss://")
@@ -33,47 +31,30 @@ def get_db_connection(for_transaction: bool = False):
     return libsql_client.create_client_sync(url=url, auth_token=auth_token)
 
 # --- FUNÇÕES DE MANIPULAÇÃO DO BANCO ---
-# Nenhuma outra função precisa ser alterada. O código abaixo é o que você já tem.
-
 def criar_banco():
     """Verifica e cria as tabelas no banco de dados Turso se não existirem."""
     conn = None
     try:
-        # Vamos usar a conexão padrão (https), que é mais estável.
-        conn = get_db_connection()
-        print("Conectado ao banco de dados (via https).")
-        
-        # Executamos um comando CREATE TABLE de cada vez.
-        print("Criando/verificando a tabela 'usuarios'...")
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS usuarios (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT UNIQUE NOT NULL,
-                password_hash TEXT NOT NULL
-            );
-        """)
-        
-        print("Criando/verificando a tabela 'compras'...")
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS compras (
+        conn = get_db_connection(for_transaction=True)
+        conn.batch([
+            """CREATE TABLE IF NOT EXISTS compras (
                 id INTEGER PRIMARY KEY AUTOINCREMENT, data_compra TEXT NOT NULL, nome_produto TEXT NOT NULL,
                 fornecedor TEXT, quantidade_comprada REAL NOT NULL, unidade_medida TEXT NOT NULL,
                 preco_unitario REAL NOT NULL, numero_nota_fiscal TEXT, id_usuario INTEGER,
                 FOREIGN KEY(id_usuario) REFERENCES usuarios(id)
-            );
-        """)
-
-        print("Criando/verificando a tabela 'historico_atividades'...")
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS historico_atividades (
+            );""",
+            """CREATE TABLE IF NOT EXISTS usuarios (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL
+            );""",
+            """CREATE TABLE IF NOT EXISTS historico_atividades (
                 id INTEGER PRIMARY KEY AUTOINCREMENT, id_usuario INTEGER, username TEXT NOT NULL,
                 acao TEXT NOT NULL, timestamp TEXT NOT NULL, detalhes TEXT,
                 FOREIGN KEY(id_usuario) REFERENCES usuarios(id)
-            );
-        """)
-
+            );"""
+        ])
         print("✅ Tabelas verificadas/criadas no Turso com sucesso.")
-        
     except Exception as e:
         print(f"❌ Erro ao criar tabelas no Turso: {e}")
     finally:
@@ -104,7 +85,8 @@ def salvar_dados_sql(df_compras_para_salvar):
         with conn.transaction() as tx:
             for _, row in df_compras_para_salvar.iterrows():
                 tx.execute(
-                    """INSERT INTO compras (data_compra, nome_produto, fornecedor, quantidade_comprada, unidade_medida, preco_unitario, numero_nota_fiscal, id_usuario) VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                    """INSERT INTO compras (data_compra, nome_produto, fornecedor, quantidade_comprada, unidade_medida, preco_unitario, numero_nota_fiscal, id_usuario) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                     (row['data_compra'], row['nome_produto'], row['fornecedor'], row['quantidade_comprada'], row['unidade_medida'], row['preco_unitario'], row['numero_nota_fiscal'], row['id_usuario'])
                 )
         return True
@@ -116,8 +98,6 @@ def salvar_dados_sql(df_compras_para_salvar):
             conn.close()
 
 def registrar_log(id_usuario, username, acao, detalhes=""):
-    # --- FINGERPRINT ---
-    print(f"[FINGERPRINT] Executando registrar_log da versão: {DATABASE_PY_VERSION}")
     conn = None
     try:
         conn = get_db_connection(for_transaction=True)
@@ -133,6 +113,6 @@ def registrar_log(id_usuario, username, acao, detalhes=""):
         if conn:
             conn.close()
 
-if __name__ == "__main__":
-    print('Executando script de setup do banco de dados...')
+if __name__ == '__main__':
+    print("Executando script de setup do banco de dados...")
     criar_banco()

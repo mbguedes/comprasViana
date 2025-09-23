@@ -1,9 +1,6 @@
 from passlib.context import CryptContext
 from database import get_db_connection
 
-AUTENTICACAO_PY_VERSION = "v3_FINAL_com_fingerprint"
-print(f"[FINGERPRINT] Arquivo autenticacao.py versão {AUTENTICACAO_PY_VERSION} carregado.")
-
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def verify_password(plain_password, hashed_password):
@@ -13,6 +10,7 @@ def get_password_hash(password):
     return pwd_context.hash(password)
 
 def check_user(username, password):
+    """Verifica o usuário no banco de dados Turso."""
     conn = None
     user_data = None
     try:
@@ -33,8 +31,6 @@ def check_user(username, password):
             return user_id, username
     return None
 
-# Em autenticacao.py
-
 def add_user(username, password):
     """Adiciona um novo usuário, retornando uma mensagem de sucesso ou o erro específico."""
     if not username or not password:
@@ -45,16 +41,15 @@ def add_user(username, password):
     try:
         conn = get_db_connection(for_transaction=True)
         with conn.transaction() as tx:
+            # Comando INSERT ajustado para a tabela usuarios sem email
             tx.execute("INSERT INTO usuarios (username, password_hash) VALUES (?, ?)", (username, password_hash))
         return "Success"
     except Exception as e:
-
         if "UNIQUE constraint failed" in str(e):
             return "Este nome de usuário já existe."
-
         else:
             print(f"Erro inesperado ao adicionar usuário: {e}")
-            return f"Erro inesperado no banco de dados. Tente novamente." 
+            return "Erro inesperado no banco de dados. Tente novamente."
     finally:
         if conn:
             conn.close()
