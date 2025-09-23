@@ -100,13 +100,12 @@ def salvar_dados_sql(df_compras_para_salvar):
 def registrar_log(id_usuario, username, acao, detalhes=""):
     conn = None
     try:
-        conn = get_db_connection(for_transaction=True)
-        with conn.transaction() as tx:
-            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            tx.execute(
-                """INSERT INTO historico_atividades (id_usuario, username, acao, timestamp, detalhes) VALUES (?, ?, ?, ?, ?)""",
-                (id_usuario, username, acao, timestamp, detalhes)
-            )
+        conn = get_db_connection()
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        conn.execute(
+            """INSERT INTO historico_atividades (id_usuario, username, acao, timestamp, detalhes) VALUES (?, ?, ?, ?, ?)""",
+            (id_usuario, username, acao, timestamp, detalhes)
+        )
     except Exception as e:
         st.error(f"Erro ao registrar log: {e}")
     finally:

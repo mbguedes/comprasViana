@@ -151,7 +151,6 @@ else:
                         acao="REGISTRO DE COMPRAS",
                         detalhes=detalhes_log
                     )
-                    
                     placeholder = st.empty()
                     placeholder.success("Parabéns! 🎉 Salvo com sucesso!")
                     time.sleep(2)
