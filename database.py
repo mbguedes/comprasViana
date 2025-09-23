@@ -79,23 +79,38 @@ def ler_dados_sql():
             conn.close()
 
 def salvar_dados_sql(df_compras_para_salvar):
+    """Salva um DataFrame de compras no banco de dados Turso usando uma transação MANUAL."""
     conn = None
+    tx = None # Inicializamos a transação como nula
     try:
+        # Pede uma conexão wss específica para a transação em lote
         conn = get_db_connection(for_transaction=True)
-        with conn.transaction() as tx:
-            for _, row in df_compras_para_salvar.iterrows():
-                tx.execute(
-                    """INSERT INTO compras (data_compra, nome_produto, fornecedor, quantidade_comprada, unidade_medida, preco_unitario, numero_nota_fiscal, id_usuario) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                    (row['data_compra'], row['nome_produto'], row['fornecedor'], row['quantidade_comprada'], row['unidade_medida'], row['preco_unitario'], row['numero_nota_fiscal'], row['id_usuario'])
-                )
+        
+        # 1. Inicia a transação manualmente
+        tx = conn.transaction()
+        
+        for _, row in df_compras_para_salvar.iterrows():
+            # 2. Executa as inserções dentro da transação
+            tx.execute(
+                """INSERT INTO compras (data_compra, nome_produto, fornecedor, quantidade_comprada, unidade_medida, preco_unitario, numero_nota_fiscal, id_usuario) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                (row['data_compra'], row['nome_produto'], row['fornecedor'], row['quantidade_comprada'], row['unidade_medida'], row['preco_unitario'], row['numero_nota_fiscal'], row['id_usuario'])
+            )
+        
+        # 3. O PASSO MAIS IMPORTANTE: Confirma (salva) a transação explicitamente
+        tx.commit()
+        
         return True
     except Exception as e:
+        # 4. Se der qualquer erro, desfaz a transação
+        if tx:
+            tx.rollback()
         st.error(f"Erro detalhado ao salvar dados: {e}")
         return False
     finally:
         if conn:
             conn.close()
+
 
 def registrar_log(id_usuario, username, acao, detalhes=""):
     conn = None
