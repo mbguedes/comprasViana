@@ -6,28 +6,12 @@ import os
 from dotenv import load_dotenv
 
 # --- FUNÇÃO DE CONEXÃO HÍBRIDA ---
-def get_db_connection(for_transaction: bool = False):
-    """Cria uma conexão com o Turso, lendo segredos do Streamlit Cloud ou de um arquivo .env local."""
-    url = None
-    auth_token = None
-    try:
-        url = st.secrets["TURSO_DB_URL"]
-        auth_token = st.secrets["TURSO_AUTH_TOKEN"]
-    except Exception:
-        load_dotenv()
-        url = os.getenv("TURSO_DB_URL")
-        auth_token = os.getenv("TURSO_AUTH_TOKEN")
-        
-    if not url or not auth_token:
-        raise ValueError("Credenciais do banco de dados não encontradas. Verifique seus arquivos secrets.toml ou .env")
-
-    if for_transaction:
-        if url.startswith("libsql://"):
-            url = url.replace("libsql://", "wss://")
-    else:
-        if url.startswith("libsql://"):
-            url = url.replace("libsql://", "https://")
-            
+def get_db_connection():
+    """Cria e retorna uma conexão HTTP com o banco de dados Turso."""
+    url = st.secrets["TURSO_DB_URL"]
+    auth_token = st.secrets["TURSO_AUTH_TOKEN"]
+    if url.startswith("libsql://"):
+        url = url.replace("libsql://", "https://")
     return libsql_client.create_client_sync(url=url, auth_token=auth_token)
 
 # --- FUNÇÕES DE MANIPULAÇÃO DO BANCO ---
@@ -79,44 +63,36 @@ def ler_dados_sql():
             conn.close()
 
 def salvar_dados_sql(df_compras_para_salvar):
-    """Salva um DataFrame de compras no banco de dados Turso usando uma transação MANUAL."""
+    """Salva um DataFrame de compras no banco de dados Turso usando execute_multiple."""
     conn = None
-    tx = None # Inicializamos a transação como nula
     try:
-        # Pede uma conexão wss específica para a transação em lote
-        conn = get_db_connection(for_transaction=True)
+        conn = get_db_connection()
         
-        # 1. Inicia a transação manualmente
-        tx = conn.transaction()
+        # 1. Prepara a instrução SQL
+        sql = """INSERT INTO compras (data_compra, nome_produto, fornecedor, quantidade_comprada, unidade_medida, preco_unitario, numero_nota_fiscal, id_usuario) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)"""
         
-        for _, row in df_compras_para_salvar.iterrows():
-            # 2. Executa as inserções dentro da transação
-            tx.execute(
-                """INSERT INTO compras (data_compra, nome_produto, fornecedor, quantidade_comprada, unidade_medida, preco_unitario, numero_nota_fiscal, id_usuario) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                (row['data_compra'], row['nome_produto'], row['fornecedor'], row['quantidade_comprada'], row['unidade_medida'], row['preco_unitario'], row['numero_nota_fiscal'], row['id_usuario'])
-            )
+        # 2. Converte o DataFrame para uma lista de tuplas, que é o formato que a função espera
+        lista_de_valores = df_compras_para_salvar.to_records(index=False).tolist()
         
-        # 3. O PASSO MAIS IMPORTANTE: Confirma (salva) a transação explicitamente
-        tx.commit()
+        # 3. Executa a inserção de múltiplos registros de uma vez
+        conn.execute_multiple(sql, lista_de_valores)
         
         return True
     except Exception as e:
-        # 4. Se der qualquer erro, desfaz a transação
-        if tx:
-            tx.rollback()
         st.error(f"Erro detalhado ao salvar dados: {e}")
         return False
     finally:
         if conn:
             conn.close()
 
-
 def registrar_log(id_usuario, username, acao, detalhes=""):
+    """Insere um novo registro na tabela de histórico de atividades."""
     conn = None
     try:
         conn = get_db_connection()
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        # Execução simples, que já sabemos que funciona
         conn.execute(
             """INSERT INTO historico_atividades (id_usuario, username, acao, timestamp, detalhes) VALUES (?, ?, ?, ?, ?)""",
             (id_usuario, username, acao, timestamp, detalhes)
