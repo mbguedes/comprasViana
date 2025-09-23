@@ -58,33 +58,34 @@ def ler_dados_sql():
         if conn:
             conn.close()
 
-# --- FUNÇÃO DE SALVAR REESCRITA (ABORDAGEM FINAL) ---
 def salvar_dados_sql(df_compras_para_salvar):
-    """Salva um DataFrame de compras, inserindo uma linha de cada vez de forma explícita."""
+    """Salva um DataFrame, forçando a conversão de tipos para cada linha."""
     try:
-        # Itera sobre cada linha do DataFrame para salvar
         for _, row in df_compras_para_salvar.iterrows():
-            conn = None # Abre uma nova conexão para cada linha
+            conn = None 
             try:
                 conn = get_db_connection()
                 
-                # Prepara a tupla de valores para esta linha específica
+
                 valores = (
-                    row['data_compra'], row['nome_produto'], row['fornecedor'],
-                    row['quantidade_comprada'], row['unidade_medida'], row['preco_unitario'],
-                    row['numero_nota_fiscal'], row['id_usuario']
+                    str(row['data_compra']),
+                    str(row['nome_produto']),
+                    str(row['fornecedor']),
+                    float(row['quantidade_comprada']), # Converte para float padrão
+                    str(row['unidade_medida']),
+                    float(row['preco_unitario']),    # Converte para float padrão
+                    str(row['numero_nota_fiscal']),
+                    int(row['id_usuario'])           # Converte para int padrão
                 )
                 
-                # Executa a inserção para a linha atual, como fazemos no registrar_log
                 conn.execute(
                     "INSERT INTO compras (data_compra, nome_produto, fornecedor, quantidade_comprada, unidade_medida, preco_unitario, numero_nota_fiscal, id_usuario) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                     valores
                 )
             finally:
                 if conn:
-                    conn.close() # Fecha a conexão após cada inserção
+                    conn.close()
 
-        # Se o loop terminar sem erros, retorna True
         return True
     except Exception as e:
         st.error(f"Erro detalhado ao salvar dados: {e}")
