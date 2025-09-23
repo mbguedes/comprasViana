@@ -31,21 +31,26 @@ def check_user(username, password):
             return user_id, username
     return None
 
+# Em autenticacao.py
+
 def add_user(username, password):
-    """Adiciona um novo usuário, retornando uma mensagem de sucesso ou o erro específico."""
+    """Adiciona um novo usuário, usando a conexão https padrão."""
     if not username or not password:
         return "Usuário e senha não podem estar em branco."
         
     password_hash = get_password_hash(password)
     conn = None
     try:
-        conn = get_db_connection(for_transaction=True)
-        with conn.transaction() as tx:
-            # Comando INSERT ajustado para a tabela usuarios sem email
-            tx.execute("INSERT INTO usuarios (username, password_hash) VALUES (?, ?)", (username, password_hash))
+        conn = get_db_connection() 
+        conn.execute("INSERT INTO usuarios (username, password_hash) VALUES (?, ?)", (username, password_hash))
         return "Success"
     except Exception as e:
-        return f"ERRO REAL DO BANCO: {str(e)}"
+        if "UNIQUE constraint failed" in str(e):
+            return "Este nome de usuário já existe."
+        else:
+            print(f"Erro inesperado ao adicionar usuário: {e}")
+            # Retorna o erro real para a tela para sabermos o que aconteceu
+            return f"ERRO REAL DO BANCO: {str(e)}"
     finally:
         if conn:
             conn.close()
