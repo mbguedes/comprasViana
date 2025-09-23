@@ -53,11 +53,17 @@ if not st.session_state.logged_in:
             new_username = st.text_input("Novo Usuário")
             new_password = st.text_input("Nova Senha", type="password")
             signup_keyword = st.text_input("Palavra-chave de Acesso", type="password", key="signup_keyword")
+            
             signup_button = st.form_submit_button("Criar Conta")
             
             if signup_button:
-                if signup_keyword == st.secrets["SIGNUP_KEYWORD"]:
+                if signup_keyword == st.secrets.get("SIGNUP_KEYWORD", ""):
+
+
+                    st.info("DEBUG: Botão 'Criar Conta' clicado. Chamando a função add_user...")
+                    print(">>> DEBUG: Botão 'Criar Conta' clicado. Chamando a função add_user...")
                     resultado = add_user(new_username, new_password)
+                    
                     if resultado == "Success":
                         st.success("Conta criada com sucesso! Por favor, faça o login.")
                         st.balloons()
